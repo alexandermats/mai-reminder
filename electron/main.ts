@@ -214,7 +214,14 @@ function createWindow(): void {
   // E15-02: On Windows/Linux, restoring from the taskbar fires 'show' (not app
   // 'activate' which is macOS-only). Navigate to missed reminders if any exist.
   if (process.platform === 'win32' || process.platform === 'linux') {
+    // 'show' is fired when restoring from tray or calling .show()
     mainWindow!.on('show', () => {
+      if (badgeService && badgeService.getMissedCount() > 0) {
+        safeNavigateToSent(badgeService.getMissedIds())
+      }
+    })
+    // 'restore' is fired when un-minimizing from the taskbar
+    mainWindow!.on('restore', () => {
       if (badgeService && badgeService.getMissedCount() > 0) {
         safeNavigateToSent(badgeService.getMissedIds())
       }
@@ -796,23 +803,36 @@ app.whenReady().then(async () => {
     const size = 16
     const basePng = baseIcon.resize({ width: size, height: size }).toDataURL()
     const displayText = count > 99 ? '99+' : String(count)
-    // Badge sizing: circle in bottom-right quadrant
+
+    // A more robust SVG structure for Chromium (nativeImage.createFromDataURL)
+    // - Use viewBox for reliable scaling
+    // - Use xlink:href for the image tag
+    // - Use URL-friendly encoding (via encodeURIComponent) which is often more reliable than base64 for SVGs
     const badgeR = count > 99 ? 7 : 5
     const cx = size - badgeR
     const cy = size - badgeR
     const fontSize = count > 99 ? 6 : 8
 
     const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-        <image href="${basePng}" width="${size}" height="${size}"/>
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+           width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <image xlink:href="${basePng}" width="${size}" height="${size}" x="0" y="0"/>
         <circle cx="${cx}" cy="${cy}" r="${badgeR}" fill="#e53935"/>
         <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
               font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">
           ${displayText}
         </text>
-      </svg>`
-    const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
-    return nativeImage.createFromDataURL(dataUrl)
+      </svg>`.trim()
+
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+    const badgedIcon = nativeImage.createFromDataURL(dataUrl)
+
+    if (badgedIcon.isEmpty()) {
+      console.error('[Tray] Badged icon is empty! Falling back to base icon.')
+      return baseIcon
+    }
+
+    return badgedIcon
   }
 
   // Wire scheduler to notifications and IPC
