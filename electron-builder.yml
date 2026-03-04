@@ -1,0 +1,110 @@
+appId: com.mai-reminder.app
+productName: Mai Reminder
+compression: normal
+directories:
+  output: release
+  buildResources: build
+
+afterPack: 'build/afterPack.cjs'
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - node_modules/**/*
+  - package.json
+
+  # ── Capacitor / mobile-specific folders ────────────────────────────────────
+  # These are only needed for Android/iOS builds which use the project's
+  # root node_modules directly — not the Electron bundle.
+  - '!node_modules/@capacitor-community/sqlite/android/**'
+  - '!node_modules/@capacitor-community/sqlite/ios/**'
+  - '!node_modules/@capacitor/android/**'
+  - '!node_modules/@capacitor/ios/**'
+
+  # @capacitor-community/sqlite pulls in sql.js and jeep-sqlite as transitive
+  # deps for web/mobile paths. Neither is used by the Electron backend.
+  - '!node_modules/sql.js/**'
+  - '!node_modules/jeep-sqlite/**'
+
+  # ── koffi ships pre-built binaries for every OS/arch ───────────────────────
+  # Strip only platforms that a macOS or Windows host will never load.
+  # Linux/BSD/RISC-V variants are never needed for desktop distribution.
+  - '!node_modules/koffi/build/koffi/linux_*/**'
+  - '!node_modules/koffi/build/koffi/musl_*/**'
+  - '!node_modules/koffi/build/koffi/freebsd_*/**'
+  - '!node_modules/koffi/build/koffi/openbsd_*/**'
+  # Keep only the source files actually required at runtime (not C++ internals)
+  - '!node_modules/koffi/src/**'
+  - '!node_modules/koffi/vendor/**'
+  - '!node_modules/koffi/doc/**'
+
+  # ── @stencil – compile-time tooling, not a runtime dep ──────────────────────
+  - '!node_modules/@stencil/**'
+
+  # ── Generic noise across all packages ──────────────────────────────────────
+  - '!node_modules/**/*.md'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/test/**'
+  - '!node_modules/**/tests/**'
+  - '!node_modules/**/__tests__/**'
+  - '!node_modules/**/docs/**'
+  - '!node_modules/**/CHANGELOG*'
+  - '!node_modules/**/LICENCE*'
+  - '!node_modules/**/LICENSE*'
+
+asar: false
+
+# FFI libraries must be unpacked so the OS dynamic linker can load them.
+asarUnpack:
+  - '**/node_modules/vosk-koffi/**/*'
+  - '**/node_modules/koffi/**/*'
+
+mac:
+  target:
+    - dmg
+  identity: null
+  extendInfo:
+    NSMicrophoneUsageDescription: 'This app requires microphone access to transcribe speech using Vosk.'
+  entitlements: 'build/entitlements.mac.plist'
+  icon: build/icon.png
+  # Strip koffi's Windows binary from the macOS package
+  files:
+    - '!node_modules/koffi/build/koffi/win32_*/**'
+    - '!node_modules/koffi/build/koffi/darwin_x64/**'
+
+win:
+  asar: true
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+  # Strip koffi's macOS binaries from the Windows package
+  files:
+    - '!node_modules/koffi/build/koffi/darwin_*/**'
+    - '!node_modules/koffi/build/koffi/win32_ia32/**'
+    - '!node_modules/koffi/build/koffi/win32_arm64/**'
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Mai Reminder
+
+# Models kept strictly outside the ASAR archive so the app can locate them
+# at runtime via process.resourcesPath.
+extraResources:
+  - from: models
+    to: models
+    filter:
+      - '**/*'
+  - from: build/icon.png
+    to: tray-icon.png
+
+publish:
+  provider: github
+  owner: alexandermats
+  repo: mai-reminder
+  # Options: "draft", "prerelease", "release"
+  releaseType: draft

@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020", "DOM"],
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "outDir": "dist-electron",
+    "rootDir": ".",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "electron/**/*",
+    "src/db/**/*",
+    "src/electron/**/*",
+    "src/services/**/*",
+    "src/utils/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": ["src/services/syncBackendClient.ts", "src/services/encryptionService.ts"]
+}

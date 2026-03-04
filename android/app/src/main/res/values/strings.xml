@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">mai-reminder</string>
+    <string name="title_activity_main">mai-reminder</string>
+    <string name="package_name">com.alexandermats.mai_reminder</string>
+    <string name="custom_url_scheme">com.alexandermats.mai_reminder</string>
+</resources>

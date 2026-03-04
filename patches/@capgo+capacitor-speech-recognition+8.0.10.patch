@@ -1,0 +1,286 @@
+diff --git a/node_modules/@capgo/capacitor-speech-recognition/android/src/main/java/app/capgo/speechrecognition/SpeechRecognitionPlugin.java b/node_modules/@capgo/capacitor-speech-recognition/android/src/main/java/app/capgo/speechrecognition/SpeechRecognitionPlugin.java
+index 2eb8aec..0af5a9d 100644
+--- a/node_modules/@capgo/capacitor-speech-recognition/android/src/main/java/app/capgo/speechrecognition/SpeechRecognitionPlugin.java
++++ b/node_modules/@capgo/capacitor-speech-recognition/android/src/main/java/app/capgo/speechrecognition/SpeechRecognitionPlugin.java
+@@ -26,10 +26,8 @@ import java.util.Locale;
+ import java.util.concurrent.locks.ReentrantLock;
+ import org.json.JSONArray;
+ 
+-@CapacitorPlugin(
+-    name = "SpeechRecognition",
+-    permissions = { @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = SpeechRecognitionPlugin.SPEECH_RECOGNITION) }
+-)
++@CapacitorPlugin(name = "SpeechRecognition", permissions = { @Permission(strings = {
++        Manifest.permission.RECORD_AUDIO }, alias = SpeechRecognitionPlugin.SPEECH_RECOGNITION) })
+ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+ 
+     public static final String SPEECH_RECOGNITION = "speechRecognition";
+@@ -46,13 +44,13 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+     public void load() {
+         super.load();
+         bridge
+-            .getWebView()
+-            .post(() -> {
+-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
+-                SpeechRecognitionListener listener = new SpeechRecognitionListener();
+-                speechRecognizer.setRecognitionListener(listener);
+-                Logger.info(getLogTag(), "Instantiated SpeechRecognizer in load()");
+-            });
++                .getWebView()
++                .post(() -> {
++                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
++                    SpeechRecognitionListener listener = new SpeechRecognitionListener();
++                    speechRecognizer.setRecognitionListener(listener);
++                    Logger.info(getLogTag(), "Instantiated SpeechRecognizer in load()");
++                });
+     }
+ 
+     @PluginMethod
+@@ -82,16 +80,14 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         boolean popup = call.getBoolean("popup", false);
+         int allowForSilence = call.getInt("allowForSilence", 0);
+         Logger.info(
+-            TAG,
+-            String.format(
+-                "Starting recognition | lang=%s maxResults=%d partial=%s popup=%s allowForSilence=%d",
+-                language,
+-                maxResults,
+-                partialResults,
+-                popup,
+-                allowForSilence
+-            )
+-        );
++                TAG,
++                String.format(
++                        "Starting recognition | lang=%s maxResults=%d partial=%s popup=%s allowForSilence=%d",
++                        language,
++                        maxResults,
++                        partialResults,
++                        popup,
++                        allowForSilence));
+         beginListening(language, maxResults, prompt, partialResults, popup, call, allowForSilence);
+     }
+ 
+@@ -124,7 +120,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+             detailsIntent.setPackage("com.google.android.googlequicksearchbox");
+         }
+-        bridge.getActivity().sendOrderedBroadcast(detailsIntent, null, languageReceiver, null, Activity.RESULT_OK, null, null);
++        bridge.getActivity().sendOrderedBroadcast(detailsIntent, null, languageReceiver, null, Activity.RESULT_OK, null,
++                null);
+     }
+ 
+     @PluginMethod
+@@ -167,7 +164,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         int resultCode = result.getResultCode();
+         if (resultCode == Activity.RESULT_OK) {
+             try {
+-                ArrayList<String> matchesList = result.getData().getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
++                ArrayList<String> matchesList = result.getData()
++                        .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                 JSObject resultObj = new JSObject();
+                 resultObj.put("matches", new JSArray(matchesList));
+                 call.resolve(resultObj);
+@@ -184,14 +182,13 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+     }
+ 
+     private void beginListening(
+-        String language,
+-        int maxResults,
+-        String prompt,
+-        final boolean partialResults,
+-        boolean showPopup,
+-        PluginCall call,
+-        int allowForSilence
+-    ) {
++            String language,
++            int maxResults,
++            String prompt,
++            final boolean partialResults,
++            boolean showPopup,
++            PluginCall call,
++            int allowForSilence) {
+         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language);
+@@ -203,7 +200,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         if (allowForSilence > 0) {
+             intent.putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, true);
+             intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, allowForSilence);
+-            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, allowForSilence);
++            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
++                    allowForSilence);
+         }
+ 
+         if (prompt != null) {
+@@ -214,53 +212,58 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+             startActivityForResult(call, intent, "listeningResult");
+         } else {
+             bridge
++                    .getWebView()
++                    .post(() -> {
++                        try {
++                            lock.lock();
++
++                            if (speechRecognizer != null) {
++                                // Rather than destroy(), we just cancel any ongoing recognition
++                                speechRecognizer.cancel();
++                            } else {
++                                // Fallback: create it if it somehow got destroyed
++                                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
++                            }
++
++                            // Reset deduplication cache so session 2 doesn't suppress events
++                            // that match words recognized in the previous session.
++                            previousPartialResults = new JSONArray();
++
++                            SpeechRecognitionListener listener = new SpeechRecognitionListener();
++                            listener.setCall(call);
++                            listener.setPartialResults(partialResults);
++                            speechRecognizer.setRecognitionListener(listener);
++                            speechRecognizer.startListening(intent);
++                            listening(true);
++                            if (partialResults) {
++                                call.resolve();
++                            }
++                        } catch (Exception ex) {
++                            call.reject(ex.getMessage());
++                        } finally {
++                            lock.unlock();
++                        }
++                    });
++        }
++    }
++
++    private void stopListening() {
++        bridge
+                 .getWebView()
+                 .post(() -> {
+                     try {
+                         lock.lock();
+-
+-                        if (speechRecognizer != null) {
+-                            speechRecognizer.cancel();
+-                            speechRecognizer.destroy();
+-                            speechRecognizer = null;
+-                        }
+-
+-                        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
+-                        SpeechRecognitionListener listener = new SpeechRecognitionListener();
+-                        listener.setCall(call);
+-                        listener.setPartialResults(partialResults);
+-                        speechRecognizer.setRecognitionListener(listener);
+-                        speechRecognizer.startListening(intent);
+-                        listening(true);
+-                        if (partialResults) {
+-                            call.resolve();
++                        if (listening) {
++                            Logger.debug(TAG, "Stopping inline recognizer");
++                            speechRecognizer.stopListening();
++                            listening(false);
+                         }
+                     } catch (Exception ex) {
+-                        call.reject(ex.getMessage());
++                        throw ex;
+                     } finally {
+                         lock.unlock();
+                     }
+                 });
+-        }
+-    }
+-
+-    private void stopListening() {
+-        bridge
+-            .getWebView()
+-            .post(() -> {
+-                try {
+-                    lock.lock();
+-                    if (listening) {
+-                        Logger.debug(TAG, "Stopping inline recognizer");
+-                        speechRecognizer.stopListening();
+-                        listening(false);
+-                    }
+-                } catch (Exception ex) {
+-                    throw ex;
+-                } finally {
+-                    lock.unlock();
+-                }
+-            });
+     }
+ 
+     private void listening(boolean value) {
+@@ -294,7 +297,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         }
+ 
+         @Override
+-        public void onReadyForSpeech(Bundle params) {}
++        public void onReadyForSpeech(Bundle params) {
++        }
+ 
+         @Override
+         public void onBeginningOfSpeech() {
+@@ -310,27 +314,29 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         }
+ 
+         @Override
+-        public void onRmsChanged(float rmsdB) {}
++        public void onRmsChanged(float rmsdB) {
++        }
+ 
+         @Override
+-        public void onBufferReceived(byte[] buffer) {}
++        public void onBufferReceived(byte[] buffer) {
++        }
+ 
+         @Override
+         public void onEndOfSpeech() {
+             bridge
+-                .getWebView()
+-                .post(() -> {
+-                    try {
+-                        lock.lock();
+-                        listening(false);
+-
+-                        JSObject ret = new JSObject();
+-                        ret.put("status", "stopped");
+-                        notifyListeners(LISTENING_EVENT, ret);
+-                    } finally {
+-                        lock.unlock();
+-                    }
+-                });
++                    .getWebView()
++                    .post(() -> {
++                        try {
++                            lock.lock();
++                            listening(false);
++
++                            JSObject ret = new JSObject();
++                            ret.put("status", "stopped");
++                            notifyListeners(LISTENING_EVENT, ret);
++                        } finally {
++                            lock.unlock();
++                        }
++                    });
+         }
+ 
+         @Override
+@@ -431,7 +437,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+                 ret.put("matches", new JSArray(matches));
+                 notifyListeners(SEGMENT_RESULTS_EVENT, ret);
+                 Logger.debug(TAG, "Segment results emitted");
+-            } catch (Exception ignored) {}
++            } catch (Exception ignored) {
++            }
+         }
+ 
+         @Override
+@@ -441,7 +448,8 @@ public class SpeechRecognitionPlugin extends Plugin implements Constants {
+         }
+ 
+         @Override
+-        public void onEvent(int eventType, Bundle params) {}
++        public void onEvent(int eventType, Bundle params) {
++        }
+     }
+ 
+     private String getErrorText(int errorCode) {
