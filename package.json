@@ -1,6 +1,6 @@
 {
   "name": "mai-reminder",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "type": "module",
   "main": "dist-electron/electron/main.js",
   "scripts": {
