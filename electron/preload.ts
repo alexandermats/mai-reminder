@@ -64,6 +64,16 @@ const electronAPI = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ipcRenderer.on('reminder:created', (_: any, reminder: Reminder) => callback(reminder))
   },
+  // Reminder updated callback (for cross-window sync)
+  onReminderUpdated: (callback: (reminder: Reminder) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ipcRenderer.on('reminder:updated', (_: any, reminder: Reminder) => callback(reminder))
+  },
+  // Reminder deleted callback (for cross-window sync)
+  onReminderDeleted: (callback: (id: string) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ipcRenderer.on('reminder:deleted', (_: any, id: string) => callback(id))
+  },
 
   // Voice Recording API (E4-08)
   startVoice: (lang?: string) => ipcRenderer.send('voice-start', lang),

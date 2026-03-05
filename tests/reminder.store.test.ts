@@ -114,6 +114,61 @@ describe('reminder store duplicate guard', () => {
     expect(store.reminders[0].id).toBe('r-2')
   })
 
+  it('updates existing reminder when IPC reminder:updated event arrives', () => {
+    const onUpdatedCallbacks: Array<(reminder: Reminder) => void> = []
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        electronAPI: {
+          onReminderUpdated: (cb: (reminder: Reminder) => void) => {
+            onUpdatedCallbacks.push(cb)
+          },
+        },
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const store = useReminderStore()
+    const initial = makeReminder('r-updated', 'Hourly check')
+    store.addReminder(initial)
+    store.initialize()
+
+    const updated = {
+      ...initial,
+      scheduledAt: new Date('2026-02-24T12:00:00.000Z'),
+      updatedAt: new Date('2026-02-24T10:30:00.000Z'),
+    }
+    onUpdatedCallbacks[0]?.(updated)
+
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].id).toBe('r-updated')
+    expect(store.reminders[0].scheduledAt.toISOString()).toBe('2026-02-24T12:00:00.000Z')
+  })
+
+  it('removes reminder when IPC reminder:deleted event arrives', () => {
+    const onDeletedCallbacks: Array<(id: string) => void> = []
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        electronAPI: {
+          onReminderDeleted: (cb: (id: string) => void) => {
+            onDeletedCallbacks.push(cb)
+          },
+        },
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const store = useReminderStore()
+    const reminder = makeReminder('r-deleted', 'To be removed')
+    store.addReminder(reminder)
+    store.initialize()
+
+    onDeletedCallbacks[0]?.('r-deleted')
+
+    expect(store.reminders).toHaveLength(0)
+  })
+
   it('initialize is idempotent and does not register callbacks twice', () => {
     const onReminderCreated = vi.fn()
     const onReminderTriggered = vi.fn()

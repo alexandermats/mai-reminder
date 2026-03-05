@@ -395,6 +395,9 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
           // If it got completed, sent, or cancelled, just cancel it to be safe
           scheduler.cancel(id as string)
         }
+        if (mainWindow) {
+          mainWindow.webContents.send('reminder:updated', reminder)
+        }
         return reminder
       } catch (error) {
         console.error('[IPC] reminders:update failed:', error)
@@ -407,6 +410,9 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
         const success = await deleteFn.call(repo, id as string, isSync as boolean)
         if (success && scheduler) {
           scheduler.cancel(id as string)
+        }
+        if (success && mainWindow) {
+          mainWindow.webContents.send('reminder:deleted', id)
         }
         return success
       } catch (error) {

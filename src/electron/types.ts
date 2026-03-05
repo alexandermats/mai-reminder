@@ -34,6 +34,8 @@ export interface ElectronAPI {
 
   // Cross-window sync callback
   onReminderCreated: (callback: (reminder: Reminder) => void) => void
+  onReminderUpdated: (callback: (reminder: Reminder) => void) => void
+  onReminderDeleted: (callback: (id: string) => void) => void
 
   // Overlay visibility callback
   onOverlayShown: (callback: () => void) => void

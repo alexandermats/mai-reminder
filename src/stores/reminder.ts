@@ -144,6 +144,17 @@ export const useReminderStore = defineStore('reminder', () => {
       return matched?.id
     }
 
+    const hydrateReminder = (payload: unknown): Reminder | null => {
+      if (!payload || typeof payload !== 'object') return null
+      const reminder = payload as SerializedReminder
+      return {
+        ...reminder,
+        scheduledAt: new Date(reminder.scheduledAt),
+        createdAt: new Date(reminder.createdAt),
+        updatedAt: new Date(reminder.updatedAt),
+      } as Reminder
+    }
+
     const processTriggeredReminder = async (reminderId: string) => {
       if (processingTriggeredReminders.has(reminderId)) return
       const reminder = reminders.value.find((item) => item.id === reminderId)
@@ -336,16 +347,25 @@ export const useReminderStore = defineStore('reminder', () => {
     }
     if (typeof window !== 'undefined' && window.electronAPI?.onReminderCreated) {
       window.electronAPI.onReminderCreated((reminderPayload: unknown) => {
-        const reminder = reminderPayload as SerializedReminder
-        console.log('[ReminderStore] Received reminder:created:', reminder.id)
-        // Hydrate dates properly from IPC serialization
-        const hydrated: Reminder = {
-          ...reminder,
-          scheduledAt: new Date(reminder.scheduledAt),
-          createdAt: new Date(reminder.createdAt),
-          updatedAt: new Date(reminder.updatedAt),
-        } as Reminder
+        const hydrated = hydrateReminder(reminderPayload)
+        if (!hydrated) return
+        console.log('[ReminderStore] Received reminder:created:', hydrated.id)
         addReminder(hydrated)
+      })
+    }
+    if (typeof window !== 'undefined' && window.electronAPI?.onReminderUpdated) {
+      window.electronAPI.onReminderUpdated((reminderPayload: unknown) => {
+        const hydrated = hydrateReminder(reminderPayload)
+        if (!hydrated) return
+        console.log('[ReminderStore] Received reminder:updated:', hydrated.id)
+        addReminder(hydrated)
+      })
+    }
+    if (typeof window !== 'undefined' && window.electronAPI?.onReminderDeleted) {
+      window.electronAPI.onReminderDeleted((id: string) => {
+        if (!id) return
+        console.log('[ReminderStore] Received reminder:deleted:', id)
+        deleteReminder(id)
       })
     }
     if (isCapacitorNative()) {
