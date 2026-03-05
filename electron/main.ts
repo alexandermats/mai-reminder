@@ -71,6 +71,13 @@ const {
     getMissedIds(): string[]
   }
 } = require('../src/electron/missedReminderBadgeService.js')
+const {
+  buildTrayBadgeSvg,
+  resolveTrayIconSizePx,
+}: {
+  buildTrayBadgeSvg: (baseIconDataUrl: string, size: number, count: number) => string
+  resolveTrayIconSizePx: (platform: NodeJS.Platform) => number
+} = require('../src/electron/trayBadgeIcon.js')
 
 // Keep a global reference of the window object to prevent garbage collection
 let mainWindow: BrowserWindowType | null = null
@@ -800,32 +807,13 @@ app.whenReady().then(async () => {
   ): import('electron').NativeImage {
     if (count <= 0) return baseIcon
 
-    const size = 16
+    const size = resolveTrayIconSizePx(process.platform)
     const basePng = baseIcon.resize({ width: size, height: size }).toDataURL()
-    const displayText = count > 99 ? '99+' : String(count)
-
-    // A more robust SVG structure for Chromium (nativeImage.createFromDataURL)
-    // - Use viewBox for reliable scaling
-    // - Use xlink:href for the image tag
-    // - Use URL-friendly encoding (via encodeURIComponent) which is often more reliable than base64 for SVGs
-    const badgeR = count > 99 ? 7 : 5
-    const cx = size - badgeR
-    const cy = size - badgeR
-    const fontSize = count > 99 ? 6 : 8
-
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
-           width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <image xlink:href="${basePng}" width="${size}" height="${size}" x="0" y="0"/>
-        <circle cx="${cx}" cy="${cy}" r="${badgeR}" fill="#e53935"/>
-        <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
-              font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">
-          ${displayText}
-        </text>
-      </svg>`.trim()
-
-    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-    const badgedIcon = nativeImage.createFromDataURL(dataUrl)
+    const svg = buildTrayBadgeSvg(basePng, size, count)
+    const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
+    const badgedIcon = nativeImage
+      .createFromDataURL(dataUrl)
+      .resize({ width: size, height: size, quality: 'best' })
 
     if (badgedIcon.isEmpty()) {
       console.error('[Tray] Badged icon is empty! Falling back to base icon.')
@@ -1083,9 +1071,12 @@ app.whenReady().then(async () => {
 
   console.log(`[Tray] Loading icon from: ${iconPath}`)
 
+  const trayIconSizePx = resolveTrayIconSizePx(process.platform)
   let trayIcon: import('electron').NativeImage
   if (existsSync(iconPath)) {
-    trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+    trayIcon = nativeImage
+      .createFromPath(iconPath)
+      .resize({ width: trayIconSizePx, height: trayIconSizePx, quality: 'best' })
   } else {
     console.warn(`[Tray] Icon not found at ${iconPath}, falling back to buffer`)
     // Fallback to the same buffer if file is missing (though it shouldn't be with the build changes)
@@ -1093,7 +1084,9 @@ app.whenReady().then(async () => {
       'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABDSURBVDhPY3hIQP8fxPj4+DAyAAgwMjIwMTExAAX+oxsA04DPwB+YQeQah24ATAMIAwxGAwQYGA0QYGA0QICB0QDBAEXoJ82qS6U/AAAAAElFTkSuQmCC',
       'base64'
     )
-    trayIcon = nativeImage.createFromBuffer(iconBuffer)
+    trayIcon = nativeImage
+      .createFromBuffer(iconBuffer)
+      .resize({ width: trayIconSizePx, height: trayIconSizePx, quality: 'best' })
   }
 
   tray = new Tray(trayIcon)
@@ -1107,6 +1100,7 @@ app.whenReady().then(async () => {
       ? (count: number) => {
           if (!tray) return
           tray.setImage(createTrayIconWithBadge(baseTrayIcon, count))
+          tray.setToolTip(count > 0 ? `MAI Reminder (${count} missed)` : 'MAI Reminder')
         }
       : undefined
 
