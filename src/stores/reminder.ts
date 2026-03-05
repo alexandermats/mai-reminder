@@ -411,9 +411,9 @@ export const useReminderStore = defineStore('reminder', () => {
     const { reminderAdapter } = await import('../services/reminderAdapter')
     try {
       const count = await reminderAdapter.clearOldReminders(includeSent)
-      if (count > 0) {
-        await fetchReminders()
-      }
+      // Always refresh local state after clear action so the UI reflects the latest DB state
+      // even if a backend implementation returns 0 while still mutating records.
+      await fetchReminders()
       return count
     } catch (err) {
       console.error('[ReminderStore] Failed to clear old reminders:', err)
