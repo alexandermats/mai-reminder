@@ -46,7 +46,14 @@ export const useReminderStore = defineStore('reminder', () => {
         }
         return r.status === filterStatus.value
       })
-      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+      .sort((a, b) => {
+        const timeA = new Date(a.scheduledAt).getTime()
+        const timeB = new Date(b.scheduledAt).getTime()
+        if (filterStatus.value === ReminderStatus.SENT) {
+          return timeB - timeA
+        }
+        return timeA - timeB
+      })
   })
 
   function setReminders(data: Reminder[]) {
@@ -315,6 +322,11 @@ export const useReminderStore = defineStore('reminder', () => {
           void processSnoozeAction(reminderId, actionId)
         } else {
           // Default tap action (no specific button pressed)
+          console.log(
+            `[ReminderStore] Notification explicitly tapped, navigating to Sent for ${reminderId}`
+          )
+          filterStatus.value = ReminderStatus.SENT
+          missedReminderIds.value = new Set([reminderId])
           void processTriggeredReminder(reminderId)
         }
       })
@@ -332,29 +344,25 @@ export const useReminderStore = defineStore('reminder', () => {
             )
             return
           }
+
+          // In Capacitor, if there ARE delivered notifications, we precisely highlight only those.
+          const activeMissedIds = new Set<string>()
+          for (const notification of delivered.notifications) {
+            const rid = extractReminderId(notification)
+            if (rid && !dismissedMissedReminderIds.value.has(rid)) {
+              activeMissedIds.add(rid)
+            }
+          }
+
+          if (activeMissedIds.size > 0) {
+            console.log(
+              `[ReminderStore] Found ${activeMissedIds.size} active missed reminders from OS. Highlighting them.`
+            )
+            filterStatus.value = ReminderStatus.SENT
+            missedReminderIds.value = activeMissedIds
+          }
         } catch (err) {
           console.warn('[ReminderStore] Failed to check delivered notifications:', err)
-        }
-
-        const settingsStore = useSettingsStore()
-        const displayTimeSecs = isCapacitorNative()
-          ? 1
-          : settingsStore.notificationDisplayTimeSeconds || 60
-        // A reminder is missed if its scheduled time plus the notification display time is in the past
-        const thresholdTime = new Date(Date.now() - displayTimeSecs * 1000)
-
-        const missed = reminders.value.filter((r) => {
-          return (
-            r.status === ReminderStatus.SENT &&
-            r.scheduledAt < thresholdTime &&
-            !dismissedMissedReminderIds.value.has(r.id)
-          )
-        })
-
-        if (missed.length > 0) {
-          console.log(`[ReminderStore] Found ${missed.length} missed reminders. Highlighting them.`)
-          filterStatus.value = ReminderStatus.SENT
-          missedReminderIds.value = new Set(missed.map((m) => m.id))
         }
       })
     }
