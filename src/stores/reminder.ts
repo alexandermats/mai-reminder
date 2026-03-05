@@ -11,6 +11,13 @@ import { syncEngine } from '../services/syncEngine'
 import type { CloudBackfillResult } from '../services/syncEngine'
 import { App } from '@capacitor/app'
 import { useSettingsStore } from './settings'
+import { notificationService } from '../services/notificationService'
+import {
+  DEFAULT_HOURLY_WINDOW_END,
+  DEFAULT_HOURLY_WINDOW_START,
+  isHourlyRule,
+  isWithinHourlyWindow,
+} from '../utils/hourlyRecurrence'
 
 /**
  * Interface for reminders coming over IPC, where Date objects
@@ -31,6 +38,7 @@ export const useReminderStore = defineStore('reminder', () => {
   const processingTriggeredReminders = new Set<string>()
   const missedReminderIds = ref<Set<string>>(new Set())
   const dismissedMissedReminderIds = ref<Set<string>>(new Set())
+  let silentHourlyTransitionInterval: ReturnType<typeof setInterval> | null = null
 
   const upcomingReminders = computed(() => {
     return [...reminders.value].sort((a, b) => {
@@ -252,6 +260,45 @@ export const useReminderStore = defineStore('reminder', () => {
       }
     }
 
+    const processDueHourlyOutsideWindow = async () => {
+      const settingsStoreRef = useSettingsStore()
+      const windowStart = settingsStoreRef.hourlyReminderStartTime || DEFAULT_HOURLY_WINDOW_START
+      const windowEnd = settingsStoreRef.hourlyReminderEndTime || DEFAULT_HOURLY_WINDOW_END
+
+      // Inside window, the OS notification path should drive transitions.
+      if (isWithinHourlyWindow(new Date(), windowStart, windowEnd)) {
+        return
+      }
+
+      // Catch up overdue hourly recurrences while outside window.
+      // This mirrors desktop behavior where recurrence advancement is decoupled
+      // from notification display.
+      let safetyCounter = 0
+      const maxTransitionsPerPass = 200
+      while (safetyCounter < maxTransitionsPerPass) {
+        const now = new Date()
+        const dueHourly = reminders.value.find(
+          (item) =>
+            item.status === ReminderStatus.PENDING &&
+            isHourlyRule(item.recurrenceRule) &&
+            item.scheduledAt.getTime() <= now.getTime()
+        )
+        if (!dueHourly) {
+          break
+        }
+        // Ensure any pre-scheduled OS notification for this skipped hourly
+        // occurrence does not fire later when we are outside window.
+        await notificationService.cancel(dueHourly.id)
+        await processTriggeredReminder(dueHourly.id)
+        safetyCounter += 1
+      }
+      if (safetyCounter === maxTransitionsPerPass) {
+        console.warn(
+          '[ReminderStore] Reached max silent hourly transitions in one pass; continuing next tick.'
+        )
+      }
+    }
+
     const extractReminderId = (payload: unknown): string | undefined => {
       if (!payload || typeof payload !== 'object') return undefined
       const data = payload as Record<string, unknown>
@@ -334,6 +381,8 @@ export const useReminderStore = defineStore('reminder', () => {
       App.addListener('appStateChange', async (state: { isActive: boolean }) => {
         if (!state.isActive) return
 
+        await processDueHourlyOutsideWindow()
+
         console.log('[ReminderStore] App returned to foreground. Checking for missed reminders...')
 
         try {
@@ -365,6 +414,13 @@ export const useReminderStore = defineStore('reminder', () => {
           console.warn('[ReminderStore] Failed to check delivered notifications:', err)
         }
       })
+
+      if (!silentHourlyTransitionInterval) {
+        silentHourlyTransitionInterval = setInterval(() => {
+          void processDueHourlyOutsideWindow()
+        }, 30_000)
+      }
+      void processDueHourlyOutsideWindow()
     }
     if (typeof window !== 'undefined' && window.electronAPI?.onNavigateToSent) {
       // E15-02: Main process (tray click) requests navigation to the sent/history tab

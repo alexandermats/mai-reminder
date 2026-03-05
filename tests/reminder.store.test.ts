@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useReminderStore } from '../src/stores/reminder'
 import {
@@ -13,6 +13,10 @@ const { addListenerMock } = vi.hoisted(() => ({
   addListenerMock: vi.fn(),
 }))
 
+const { getDeliveredNotificationsMock } = vi.hoisted(() => ({
+  getDeliveredNotificationsMock: vi.fn(() => Promise.resolve({ notifications: [] as unknown[] })),
+}))
+
 const { adapterUpdateMock, adapterCreateMock } = vi.hoisted(() => ({
   adapterUpdateMock: vi.fn(),
   adapterCreateMock: vi.fn(),
@@ -21,6 +25,7 @@ const { adapterUpdateMock, adapterCreateMock } = vi.hoisted(() => ({
 vi.mock('@capacitor/local-notifications', () => ({
   LocalNotifications: {
     addListener: addListenerMock,
+    getDeliveredNotifications: getDeliveredNotificationsMock,
     removeAllDeliveredNotifications: vi.fn(() => Promise.resolve()),
   },
 }))
@@ -66,7 +71,13 @@ describe('reminder store duplicate guard', () => {
     appAddListenerMock.mockReset()
     adapterUpdateMock.mockReset()
     adapterCreateMock.mockReset()
+    getDeliveredNotificationsMock.mockReset()
+    getDeliveredNotificationsMock.mockResolvedValue({ notifications: [] })
     vi.unstubAllGlobals()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('does not add duplicate reminders with the same id', () => {
@@ -125,12 +136,16 @@ describe('reminder store duplicate guard', () => {
   it('marks reminder as sent when capacitor local notification is received', async () => {
     const reminder = makeReminder('r-3', 'Pay rent')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(globalThis as any).window = {
+    const mockWindow = {
       Capacitor: {
         isNativePlatform: () => true,
       },
     }
+    Object.defineProperty(globalThis, 'window', {
+      value: mockWindow,
+      writable: true,
+      configurable: true,
+    })
 
     const store = useReminderStore()
     store.addReminder(reminder)
@@ -279,6 +294,9 @@ describe('reminder store duplicate guard', () => {
     store.addReminder(missedReminder)
     store.addReminder(recentReminder)
     store.initialize()
+    getDeliveredNotificationsMock.mockResolvedValue({
+      notifications: [{ extra: { reminderId: 'r-missed' } }] as unknown[],
+    })
 
     const listenerEntry = appAddListenerMock.mock.calls.find(
       (entry) => entry[0] === 'appStateChange'
