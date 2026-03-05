@@ -17,4 +17,5 @@ coverage/
 *.png
 !build/icon.png
 vite.config.ts.timestamp-*
+android/.idea/
 

@@ -1,16 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrayBadgeSvg, resolveTrayIconSizePx } from '../../src/electron/trayBadgeIcon'
+import {
+  overlayCountBadgeOnBitmap,
+  resolveBadgeText,
+  resolveTrayIconSizePx,
+} from '../../src/electron/trayBadgeIcon'
+
+function containsRedPixel(bitmap: Buffer): boolean {
+  for (let i = 0; i < bitmap.length; i += 4) {
+    const b = bitmap[i]
+    const g = bitmap[i + 1]
+    const r = bitmap[i + 2]
+    const a = bitmap[i + 3]
+    if (a > 0 && r >= 180 && g <= 90 && b <= 90) return true
+  }
+  return false
+}
 
 describe('trayBadgeIcon', () => {
-  it('renders badge text for regular counts', () => {
-    const svg = buildTrayBadgeSvg('data:image/png;base64,AAA', 32, 7)
-    expect(svg).toContain('>7</text>')
-    expect(svg).toContain('fill="#d32f2f"')
+  it('draws no badge for zero count', () => {
+    const size = 32
+    const source = Buffer.alloc(size * size * 4, 0)
+    const out = overlayCountBadgeOnBitmap(source, size, 0)
+    expect(out.equals(source)).toBe(true)
   })
 
-  it('caps large badge text at 99+', () => {
-    const svg = buildTrayBadgeSvg('data:image/png;base64,AAA', 32, 123)
-    expect(svg).toContain('>99+</text>')
+  it('draws a red badge for positive count', () => {
+    const size = 32
+    const source = Buffer.alloc(size * size * 4, 0)
+    const out = overlayCountBadgeOnBitmap(source, size, 7)
+    expect(containsRedPixel(out)).toBe(true)
+  })
+
+  it('caps large text based on icon size', () => {
+    expect(resolveBadgeText(123, 32)).toBe('99+')
+    expect(resolveBadgeText(123, 16)).toBe('99')
   })
 
   it('uses larger tray icon size on Windows', () => {

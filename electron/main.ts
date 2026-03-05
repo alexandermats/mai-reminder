@@ -72,10 +72,10 @@ const {
   }
 } = require('../src/electron/missedReminderBadgeService.js')
 const {
-  buildTrayBadgeSvg,
+  overlayCountBadgeOnBitmap,
   resolveTrayIconSizePx,
 }: {
-  buildTrayBadgeSvg: (baseIconDataUrl: string, size: number, count: number) => string
+  overlayCountBadgeOnBitmap: (sourceBitmap: Buffer, size: number, count: number) => Buffer
   resolveTrayIconSizePx: (platform: NodeJS.Platform) => number
 } = require('../src/electron/trayBadgeIcon.js')
 
@@ -802,11 +802,7 @@ app.whenReady().then(async () => {
   // E15-02: Initialize badge service — updates OS dock badge with missed reminder count
   // On Windows, also update the tray icon with a badge overlay showing the missed count.
 
-  /**
-   * Creates a 16×16 tray icon NativeImage with a red badge circle showing `count`.
-   * Uses inline SVG rendered via nativeImage.createFromDataURL.
-   * When count is 0, returns the plain base icon.
-   */
+  /** Creates a tray icon NativeImage with a red badge circle showing `count`. */
   function createTrayIconWithBadge(
     baseIcon: import('electron').NativeImage,
     count: number
@@ -814,12 +810,13 @@ app.whenReady().then(async () => {
     if (count <= 0) return baseIcon
 
     const size = resolveTrayIconSizePx(process.platform)
-    const basePng = baseIcon.resize({ width: size, height: size }).toDataURL()
-    const svg = buildTrayBadgeSvg(basePng, size, count)
-    const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
-    const badgedIcon = nativeImage
-      .createFromDataURL(dataUrl)
-      .resize({ width: size, height: size, quality: 'best' })
+    const sizedBaseIcon = baseIcon.resize({ width: size, height: size, quality: 'best' })
+    const badgedBitmap = overlayCountBadgeOnBitmap(sizedBaseIcon.toBitmap(), size, count)
+    const badgedIcon = nativeImage.createFromBitmap(badgedBitmap, {
+      width: size,
+      height: size,
+      scaleFactor: 1,
+    })
 
     if (badgedIcon.isEmpty()) {
       console.error('[Tray] Badged icon is empty! Falling back to base icon.')
