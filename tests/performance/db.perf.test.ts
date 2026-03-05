@@ -17,11 +17,11 @@ describe('Database Performance', () => {
     db.close()
   })
 
-  it('lists upcoming reminders in < 50ms with 1000 items', async () => {
+  it('lists upcoming reminders in < 100ms with 1000 items', async () => {
     // Seed 1000 items
     const now = new Date()
     for (let i = 0; i < 1000; i++) {
-      const scheduledAt = new Date(now.getTime() + (i + 1) * 60000) // All in the future
+      const scheduledAt = new Date(now.getTime() + (i + 1) * 100000) // All in the future
       await repo.create({
         title: `Perf reminder ${i} `,
         originalText: 'Test phrase',

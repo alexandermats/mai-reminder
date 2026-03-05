@@ -45,6 +45,7 @@ describe('ChronoLocalParser (E2-03)', () => {
       expect(result.scheduledAt).toBeInstanceOf(Date)
       expect(result.scheduledAt.getHours()).toBe(18)
       expect(result.scheduledAt.getMinutes()).toBe(0)
+      expect(result.title).toBe('to go for a walk')
     })
 
     it('parses "at eleven thirty am"', async () => {
@@ -158,6 +159,16 @@ describe('ChronoLocalParser (E2-03)', () => {
       expect(result.scheduledAt).toBeInstanceOf(Date)
       expect(result.scheduledAt.getHours()).toBe(18)
       expect(result.scheduledAt.getMinutes()).toBe(0)
+    })
+
+    it('removes lead-in + time from "Напомни мне в 6 вечера..." title', async () => {
+      const input: ParseInput = { text: 'Напомни мне в 6 вечера пойти на прогулку', language: 'ru' }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      expect(result.scheduledAt.getHours()).toBe(18)
+      expect(result.scheduledAt.getMinutes()).toBe(0)
+      expect(result.title).toBe('пойти на прогулку')
     })
 
     it('parses "в следующий вторник"', async () => {

@@ -95,7 +95,10 @@ export class ChronoLocalParser implements Parser {
     const scheduledAt = parsed.date()
 
     // Extract title by removing the matched date text from original input
-    const title = extractTitle(input.text, parsed.text, recurrence?.matchedText)
+    const matchedRecurrenceText = recurrence?.matchedText
+      ? normalizeTextForChrono(recurrence.matchedText, input.language)
+      : undefined
+    const title = extractTitle(textForChrono, parsed.text, matchedRecurrenceText)
 
     // Confidence is higher when an explicit time is present
     const hasExplicitTime = parsed.start.isCertain('hour')
@@ -136,7 +139,10 @@ function extractTitle(
   cleaned = cleaned
     .replace(matchedDateText || '', '')
     // Remove common reminder lead-in phrases
-    .replace(/^\s*(remind me|напомни|напомнить мне|reminder|set a reminder|reminder:)\s*/i, '')
+    .replace(
+      /^\s*(remind me|напомнить мне|напомни мне|напомни|reminder|set a reminder|reminder:)\s*/i,
+      ''
+    )
     .replace(/\s+/g, ' ')
     .trim()
 
