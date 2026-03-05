@@ -12,6 +12,12 @@ import {
   ReminderStatus,
 } from '../types/reminder'
 import { toUTCString, fromUTCString } from '../utils/datetime'
+import {
+  DEFAULT_HOURLY_WINDOW_END,
+  DEFAULT_HOURLY_WINDOW_START,
+  isHourlyRule,
+  isWithinHourlyWindow,
+} from '../utils/hourlyRecurrence'
 import type { IReminderRepository, ListOptions } from '../types/repository'
 
 /**
@@ -341,7 +347,7 @@ export class ElectronReminderRepository implements IReminderRepository {
     try {
       const beforeWithTimeout = new Date(before.getTime() - timeoutSeconds * 1000)
       const beforeString = toUTCString(beforeWithTimeout)
-      let query = `SELECT id, scheduled_at, status FROM reminders
+      let query = `SELECT id, scheduled_at, status, recurrence_rule FROM reminders
            WHERE status = 'sent'
              AND scheduled_at <= ?`
       const params: string[] = [beforeString]
@@ -357,16 +363,42 @@ export class ElectronReminderRepository implements IReminderRepository {
         id: string
         scheduled_at: string
         status: string
+        recurrence_rule: string | null
       }[]
 
-      return rows.map((row) => ({
-        id: row.id,
-        scheduledAt: fromUTCString(row.scheduled_at),
-        status: row.status,
-      }))
+      const hourlyWindowStart =
+        this.getSettingValue('hourlyReminderStartTime') ?? DEFAULT_HOURLY_WINDOW_START
+      const hourlyWindowEnd =
+        this.getSettingValue('hourlyReminderEndTime') ?? DEFAULT_HOURLY_WINDOW_END
+
+      return rows
+        .map((row) => ({
+          id: row.id,
+          scheduledAt: fromUTCString(row.scheduled_at),
+          status: row.status,
+          recurrenceRule: row.recurrence_rule ?? undefined,
+        }))
+        .filter((row) => {
+          if (!isHourlyRule(row.recurrenceRule)) {
+            return true
+          }
+          return isWithinHourlyWindow(row.scheduledAt, hourlyWindowStart, hourlyWindowEnd)
+        })
+        .map((row) => ({
+          id: row.id,
+          scheduledAt: row.scheduledAt,
+          status: row.status,
+        }))
     } catch (err) {
       throw new RepositoryError('Failed to list missed reminders', err)
     }
+  }
+
+  private getSettingValue(key: 'hourlyReminderStartTime' | 'hourlyReminderEndTime'): string | null {
+    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined
+    return row?.value ?? null
   }
 
   /**

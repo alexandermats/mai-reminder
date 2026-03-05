@@ -5,6 +5,7 @@ import {
   ReminderLanguage,
   ReminderSource,
   ReminderParserMode,
+  ReminderStatus,
   type ReminderInput,
 } from '../src/types/reminder'
 
@@ -314,6 +315,140 @@ describe('ReminderRepository', () => {
       expect(upcoming).toHaveLength(2)
       expect(upcoming[0].title).toBe('Present')
       expect(upcoming[1].title).toBe('Future')
+    })
+  })
+
+  describe('listMissed', () => {
+    function setHourlyWindow(start: string, end: string): void {
+      const updatedAt = new Date().toISOString()
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+      ).run('hourlyReminderStartTime', start, updatedAt)
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+      ).run('hourlyReminderEndTime', end, updatedAt)
+    }
+
+    async function createSentReminder(
+      id: string,
+      scheduledAt: Date,
+      recurrenceRule?: string
+    ): Promise<void> {
+      await repository.create({
+        id,
+        title: `Reminder ${id}`,
+        originalText: `Text ${id}`,
+        language: ReminderLanguage.EN,
+        scheduledAt,
+        source: ReminderSource.TEXT,
+        parserMode: ReminderParserMode.LOCAL,
+        status: ReminderStatus.SENT,
+        recurrenceRule,
+      })
+    }
+
+    it('counts hourly recurring reminders as missed only inside the configured window', async () => {
+      setHourlyWindow('09:00', '22:00')
+      const baseDay = new Date(2026, 1, 25, 0, 0, 0, 0)
+
+      await createSentReminder(
+        'hourly-in-window',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 10, 0, 0),
+        'FREQ=HOURLY;INTERVAL=2'
+      )
+      await createSentReminder(
+        'hourly-outside-window',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 3, 0, 0),
+        'FREQ=HOURLY;INTERVAL=2'
+      )
+      await createSentReminder(
+        'daily-outside-window',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 3, 0, 0),
+        'FREQ=DAILY;INTERVAL=1'
+      )
+      await createSentReminder(
+        'one-time-outside-window',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 3, 30, 0)
+      )
+
+      const before = new Date(
+        baseDay.getFullYear(),
+        baseDay.getMonth(),
+        baseDay.getDate(),
+        23,
+        0,
+        0
+      )
+      const missed = await repository.listMissed(before)
+      const ids = missed.map((item) => item.id)
+
+      expect(ids).toContain('hourly-in-window')
+      expect(ids).toContain('daily-outside-window')
+      expect(ids).toContain('one-time-outside-window')
+      expect(ids).not.toContain('hourly-outside-window')
+    })
+
+    it('supports day-rollover windows for hourly recurring reminders', async () => {
+      setHourlyWindow('22:00', '02:00')
+      const baseDay = new Date(2026, 1, 25, 0, 0, 0, 0)
+
+      await createSentReminder(
+        'rollover-evening',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 23, 30, 0),
+        'FREQ=HOURLY;INTERVAL=1'
+      )
+      await createSentReminder(
+        'rollover-morning',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate() + 1, 1, 30, 0),
+        'FREQ=HOURLY;INTERVAL=1'
+      )
+      await createSentReminder(
+        'rollover-gap',
+        new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 10, 0, 0),
+        'FREQ=HOURLY;INTERVAL=1'
+      )
+
+      const before = new Date(
+        baseDay.getFullYear(),
+        baseDay.getMonth(),
+        baseDay.getDate() + 1,
+        12,
+        0,
+        0
+      )
+      const missed = await repository.listMissed(before)
+      const ids = missed.map((item) => item.id)
+
+      expect(ids).toContain('rollover-evening')
+      expect(ids).toContain('rollover-morning')
+      expect(ids).not.toContain('rollover-gap')
+    })
+
+    it('keeps timeout and since filters when applying hourly window logic', async () => {
+      setHourlyWindow('09:00', '22:00')
+      const now = new Date(2026, 1, 25, 10, 0, 0, 0)
+
+      await createSentReminder(
+        'old-hourly-in-window',
+        new Date(now.getTime() - 5 * 60 * 1000),
+        'FREQ=HOURLY;INTERVAL=1'
+      )
+      await createSentReminder(
+        'old-hourly-outside-window',
+        new Date(2026, 1, 25, 3, 0, 0, 0),
+        'FREQ=HOURLY;INTERVAL=1'
+      )
+      await createSentReminder('recent-one-time', new Date(now.getTime() - 30 * 1000))
+
+      const since = new Date(now.getTime() - 10 * 60 * 1000)
+      const missed = await repository.listMissed(now, since, 60)
+      const ids = missed.map((item) => item.id)
+
+      expect(ids).toContain('old-hourly-in-window')
+      expect(ids).not.toContain('old-hourly-outside-window')
+      expect(ids).not.toContain('recent-one-time')
     })
   })
 
