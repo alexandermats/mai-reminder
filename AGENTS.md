@@ -27,3 +27,7 @@ The role of this file is to describe common mistakes and confusion points that a
 ## Development rules
 
 Strictly avoid using `any` in tests or implementation (e.g., use `unknown` or define proper mock types) to prevent `@typescript-eslint/no-explicit-any` linter errors.
+
+## Parser gotchas
+
+- `chrono-node` can miss or misread spoken times with number words (for example, EN `at six pm`, RU `в шесть вечера`). Keep locale-specific normalization in local parser preprocessors (`enTimeNormalizer` / `ruTimeNormalizer`) and add tests when expanding phrase coverage.

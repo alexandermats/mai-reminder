@@ -60,6 +60,16 @@ describe('normalizeRussianText', () => {
       const result = normalizeRussianText('ужин в восемнадцать двадцать')
       expect(result).toContain('18:20')
     })
+
+    it('normalizes "в шесть вечера" → "в 18:00"', () => {
+      const result = normalizeRussianText('пойти на улицу в шесть вечера')
+      expect(result).toContain('18:00')
+    })
+
+    it('normalizes "в шесть тридцать вечера" → "в 18:30"', () => {
+      const result = normalizeRussianText('прогулка в шесть тридцать вечера')
+      expect(result).toContain('18:30')
+    })
   })
 
   // ── No false positives ───────────────────────────────────────────────────────

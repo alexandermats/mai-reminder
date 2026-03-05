@@ -7,6 +7,7 @@
 import * as chrono from 'chrono-node'
 import type { ParseInput, ParseResult, Parser } from './types'
 import { parseRecurrence } from './recurrenceParser'
+import { normalizeEnglishText } from './enTimeNormalizer'
 import { normalizeRussianText } from './ruTimeNormalizer'
 import { RRule } from 'rrule'
 
@@ -48,10 +49,8 @@ export class ChronoLocalParser implements Parser {
     // Select locale-specific chrono parser
     const chronoParser = input.language === 'ru' ? chrono.ru : chrono.casual
 
-    // Pre-process Russian text to fix time expressions chrono cannot handle:
-    //  - space-separated digits: "в 14 55" → "в 14:55"
-    //  - spelled-out hour+minute: "в четырнадцать пятьдесят пять" → "в 14:55"
-    const textForChrono = input.language === 'ru' ? normalizeRussianText(input.text) : input.text
+    // Pre-process locale-specific expressions that chrono misses.
+    const textForChrono = normalizeTextForChrono(input.text, input.language)
 
     // Parse with forwardDate=true so relative expressions prefer the future
     let results = chronoParser.parse(textForChrono, refDate, { forwardDate: true })
@@ -64,7 +63,11 @@ export class ChronoLocalParser implements Parser {
         .replace(/\s+/g, ' ')
         .trim()
       if (withoutRecurrence.length > 0) {
-        results = chronoParser.parse(withoutRecurrence, refDate, { forwardDate: true })
+        const normalizedWithoutRecurrence = normalizeTextForChrono(
+          withoutRecurrence,
+          input.language
+        )
+        results = chronoParser.parse(normalizedWithoutRecurrence, refDate, { forwardDate: true })
       }
     }
 
@@ -109,6 +112,13 @@ export class ChronoLocalParser implements Parser {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function normalizeTextForChrono(text: string, language: ParseInput['language']): string {
+  if (language === 'ru') {
+    return normalizeRussianText(text)
+  }
+  return normalizeEnglishText(text)
+}
 
 /**
  * Remove the matched date fragment from text to derive the reminder title.

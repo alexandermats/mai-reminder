@@ -38,6 +38,24 @@ describe('ChronoLocalParser (E2-03)', () => {
       expect(result.usedMode).toBe('local')
     })
 
+    it('parses "at six pm"', async () => {
+      const input: ParseInput = { text: 'Remind me to go for a walk at six pm', language: 'en' }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      expect(result.scheduledAt.getHours()).toBe(18)
+      expect(result.scheduledAt.getMinutes()).toBe(0)
+    })
+
+    it('parses "at eleven thirty am"', async () => {
+      const input: ParseInput = { text: 'take a break at eleven thirty am', language: 'en' }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      expect(result.scheduledAt.getHours()).toBe(11)
+      expect(result.scheduledAt.getMinutes()).toBe(30)
+    })
+
     it('parses "in 2 hours"', async () => {
       const input: ParseInput = { text: 'remind me in 2 hours', language: 'en' }
       const result = await parser.parse(input)
@@ -131,6 +149,15 @@ describe('ChronoLocalParser (E2-03)', () => {
       expect(result.scheduledAt).toBeInstanceOf(Date)
       const expectedMs = REF_DATE.getTime() + 2 * 60 * 60 * 1000
       expect(Math.abs(result.scheduledAt.getTime() - expectedMs)).toBeLessThan(60 * 1000)
+    })
+
+    it('parses "в шесть вечера" as 18:00', async () => {
+      const input: ParseInput = { text: 'пойти на улицу в шесть вечера', language: 'ru' }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      expect(result.scheduledAt.getHours()).toBe(18)
+      expect(result.scheduledAt.getMinutes()).toBe(0)
     })
 
     it('parses "в следующий вторник"', async () => {

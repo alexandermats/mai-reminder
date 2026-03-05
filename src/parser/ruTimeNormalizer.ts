@@ -1,9 +1,10 @@
 /**
  * Russian text normalizer for time expressions (E12-03).
  *
- * Fixes two parsing bugs that chrono-node cannot handle on its own:
+ * Fixes parsing bugs that chrono-node cannot handle on its own:
  *  1. Space-separated digit times: "в 14 55" → "в 14:55"
  *  2. Spelled-out hour+minute words: "в четырнадцать пятьдесят пять" → "в 14:55"
+ *  3. Spelled-out hour + daypart: "в шесть вечера" → "в 18:00"
  *
  * This runs as a pre-processing step in ChronoLocalParser before the text is
  * passed to chrono-node. It is intentionally scoped to Russian locale only.
@@ -111,6 +112,15 @@ const SPELLED_TIME_RE = new RegExp(
  * Negative lookahead (?!\d) prevents matching three-digit sequences like "14 550".
  */
 const DIGIT_SPACE_TIME_RE = /(?:^|(?<=\s))в\s+(\d{1,2})\s+(\d{2})(?!\d)/giu
+const DAYPART_PATTERN = 'утра|дня|вечера|ночи'
+const SPELLED_HOUR_DAYPART_RE = new RegExp(
+  `(?:^|(?<=\\s))в\\s+(${HOUR_WORDS_PATTERN})\\s+(${DAYPART_PATTERN})(?=\\s|$|[,.!?:;])`,
+  'giu'
+)
+const HOUR_MINUTE_DAYPART_RE = new RegExp(
+  `(?:^|(?<=\\s))в\\s+(\\d{1,2})(?::(\\d{2}))?\\s+(${DAYPART_PATTERN})(?=\\s|$|[,.!?:;])`,
+  'giu'
+)
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -119,7 +129,9 @@ const DIGIT_SPACE_TIME_RE = /(?:^|(?<=\s))в\s+(\d{1,2})\s+(\d{2})(?!\d)/giu
  *
  * Transformations applied (in order):
  *  1. Spelled-out words: "в четырнадцать пятьдесят пять" → "в 14:55"
- *  2. Space-separated digits: "в 14 55" → "в 14:55"
+ *  2. Spelled-out hour + daypart: "в шесть вечера" → "в 6 вечера"
+ *  3. Space-separated digits: "в 14 55" → "в 14:55"
+ *  4. Daypart to 24h time: "в 6 вечера" → "в 18:00"
  *
  * Only text following the Russian time preposition "в" is matched.
  * English text and already-colon-formatted times are left unchanged.
@@ -151,11 +163,56 @@ export function normalizeRussianText(text: string): string {
     }
   )
 
-  // Step 2: space-separated digit times
+  // Step 2: spelled hour + daypart
+  result = result.replace(
+    SPELLED_HOUR_DAYPART_RE,
+    (_match: string, hourWord: string, daypart: string) => {
+      const hour = RU_HOUR_WORDS[hourWord.toLowerCase()]
+      if (hour === undefined) return _match
+      return `в ${hour} ${daypart}`
+    }
+  )
+
+  // Step 3: space-separated digit times
   result = result.replace(
     DIGIT_SPACE_TIME_RE,
     (_match: string, hour: string, minute: string) => `в ${hour}:${minute}`
   )
 
+  // Step 4: convert 12-hour daypart expressions into explicit 24-hour time.
+  result = result.replace(
+    HOUR_MINUTE_DAYPART_RE,
+    (_match: string, hourStr: string, minuteStr: string | undefined, daypart: string) => {
+      const hour = Number(hourStr)
+      const minute = minuteStr ? Number(minuteStr) : 0
+      if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+        return _match
+      }
+
+      const hour24 = to24Hour(hour, daypart.toLowerCase())
+      if (hour24 === undefined) return _match
+
+      return `в ${hour24}:${String(minute).padStart(2, '0')}`
+    }
+  )
+
   return result
+}
+
+function to24Hour(hour: number, daypart: string): number | undefined {
+  if (hour < 1 || hour > 12) return undefined
+
+  if (daypart === 'утра') {
+    return hour % 12
+  }
+
+  if (daypart === 'дня' || daypart === 'вечера') {
+    return hour === 12 ? 12 : hour + 12
+  }
+
+  if (daypart === 'ночи') {
+    return hour === 12 ? 0 : hour
+  }
+
+  return undefined
 }
