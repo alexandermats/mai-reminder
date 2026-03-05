@@ -67,6 +67,18 @@ describe('ChronoLocalParser (E2-03)', () => {
       expect(Math.abs(result.scheduledAt.getTime() - expectedMs)).toBeLessThan(60 * 1000)
     })
 
+    it('parses "in fifteen minutes"', async () => {
+      const input: ParseInput = {
+        text: 'remind me to do something in fifteen minutes',
+        language: 'en',
+      }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      const expectedMs = REF_DATE.getTime() + 15 * 60 * 1000
+      expect(Math.abs(result.scheduledAt.getTime() - expectedMs)).toBeLessThan(60 * 1000)
+    })
+
     it('parses "next Tuesday"', async () => {
       const input: ParseInput = { text: 'Team meeting next Tuesday', language: 'en' }
       const result = await parser.parse(input)
@@ -149,6 +161,15 @@ describe('ChronoLocalParser (E2-03)', () => {
 
       expect(result.scheduledAt).toBeInstanceOf(Date)
       const expectedMs = REF_DATE.getTime() + 2 * 60 * 60 * 1000
+      expect(Math.abs(result.scheduledAt.getTime() - expectedMs)).toBeLessThan(60 * 1000)
+    })
+
+    it('parses "через пятнадцать минут"', async () => {
+      const input: ParseInput = { text: 'напомни мне через пятнадцать минут', language: 'ru' }
+      const result = await parser.parse(input)
+
+      expect(result.scheduledAt).toBeInstanceOf(Date)
+      const expectedMs = REF_DATE.getTime() + 15 * 60 * 1000
       expect(Math.abs(result.scheduledAt.getTime() - expectedMs)).toBeLessThan(60 * 1000)
     })
 
