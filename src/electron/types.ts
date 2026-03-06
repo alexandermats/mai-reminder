@@ -58,6 +58,9 @@ export interface ElectronAPI {
   badgeCleared: () => void
   /** Subscribe to navigation requests from the main process (tray click) to open the sent tab. */
   onNavigateToSent: (callback: (missedIds?: string[]) => void) => void
+
+  /** Trigger a manual badge refresh from the renderer (e.g. after startup reconciliation). */
+  badgeRefresh: () => void
 }
 
 declare global {

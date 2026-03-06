@@ -476,5 +476,6 @@ ion-footer {
 .sent-count {
   margin-left: 4px;
   font-weight: 700;
+  color: var(--ion-color-danger);
 }
 </style>

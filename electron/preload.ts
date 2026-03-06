@@ -127,6 +127,8 @@ const electronAPI = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ipcRenderer.on('badge:navigate-sent', (_: any, missedIds?: string[]) => callback(missedIds))
   },
+  /** Trigger a manual badge refresh from the renderer (e.g. after startup reconciliation). */
+  badgeRefresh: () => ipcRenderer.send('badge:refresh'),
 }
 
 // Expose the API to the renderer process

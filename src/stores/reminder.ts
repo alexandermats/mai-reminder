@@ -370,6 +370,11 @@ export const useReminderStore = defineStore('reminder', () => {
         }
         await fetchReminders()
       }
+
+      // E15-02: Refresh badge after startup reconciliation is complete
+      if (changedCount > 0 && typeof window !== 'undefined' && window.electronAPI?.badgeRefresh) {
+        window.electronAPI.badgeRefresh()
+      }
     })()
 
     try {

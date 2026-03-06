@@ -112,6 +112,14 @@ interface TriggerTransitionRepository {
   create(input: Record<string, unknown>): Promise<CoreReminder>
 }
 
+interface MissedReminderRepository {
+  listMissed(
+    before?: Date,
+    since?: Date,
+    timeoutSeconds?: number
+  ): Promise<{ id: string; scheduledAt: Date; status: string }[]>
+}
+
 interface IReminderScheduler {
   schedule(reminder: CoreReminder): void
   cancel(id: string): void
@@ -607,6 +615,13 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
     }
   })
 
+  // E15-02: Badge refresh — renderer triggers a refresh (e.g. after reconciliation)
+  ipcMain.on('badge:refresh', async () => {
+    if (repo) {
+      void refreshBadgeCount(repo as unknown as MissedReminderRepository)
+    }
+  })
+
   // Snooze overlay IPC handlers (Windows/Linux cross-platform snooze)
   ipcMain.on('snooze:action', (_: unknown, payload: { reminderId: string; action: string }) => {
     const { reminderId, action } = payload
@@ -923,52 +938,18 @@ app.whenReady().then(async () => {
 
       // E15-02: Refresh badge after state transition
       if (badgeService) {
-        let sinceDate: Date | undefined
-        try {
-          const {
-            SettingsRepository,
-          }: Record<string, unknown> = require('../src/db/settingsRepository.js')
-          const sRepo = new (SettingsRepository as new (db: unknown) => unknown)(db) as {
-            getSetting(key: string): Promise<string | null>
-          }
-          const lastClearTime = await sRepo.getSetting('lastBadgeClearTime')
-          if (lastClearTime && lastClearTime !== '0') {
-            sinceDate = new Date(lastClearTime)
-            if (isNaN(sinceDate.getTime())) {
-              sinceDate = undefined
-            }
-          }
-        } catch (err) {
-          console.error('[Badge] Failed to fetch lastBadgeClearTime on scheduler tick:', err)
-        }
-
-        await badgeService.refresh(
-          dbRepo as unknown as {
-            listMissed(
-              before?: Date,
-              since?: Date,
-              timeoutSeconds?: number
-            ): Promise<{ id: string; scheduledAt: Date; status: string }[]>
-          },
-          sinceDate,
-          displayTimeSeconds
-        )
+        await refreshBadgeCount(dbRepo as unknown as MissedReminderRepository, displayTimeSeconds)
 
         // Schedule another check after the display time elapses so the ignored notification
         // updates the badge
         setTimeout(
           () => {
-            badgeService?.refresh(
-              dbRepo as unknown as {
-                listMissed(
-                  before?: Date,
-                  since?: Date,
-                  timeoutSeconds?: number
-                ): Promise<{ id: string; scheduledAt: Date; status: string }[]>
-              },
-              sinceDate,
-              displayTimeSeconds
-            )
+            if (badgeService) {
+              void refreshBadgeCount(
+                dbRepo as unknown as MissedReminderRepository,
+                displayTimeSeconds
+              )
+            }
           },
           displayTimeSeconds * 1000 + 500
         )
@@ -1106,6 +1087,32 @@ app.whenReady().then(async () => {
     app.setBadgeCount(count)
   }, setTrayBadgeCallback)
 
+  // Refresh badge on startup to show missed reminders immediately
+  void (async () => {
+    try {
+      const dbRepo = new (ElectronReminderRepository as new (db: unknown) => unknown)(db) as {
+        listMissed(
+          before?: Date,
+          since?: Date,
+          timeoutSeconds?: number
+        ): Promise<{ id: string; scheduledAt: Date; status: string }[]>
+      }
+      const {
+        SettingsRepository,
+      }: Record<string, unknown> = require('../src/db/settingsRepository.js')
+      const settingsRepo = new (SettingsRepository as new (db: unknown) => unknown)(db) as {
+        getSetting(key: string): Promise<string | null>
+      }
+      const timeStr = await settingsRepo.getSetting('notificationDisplayTimeSeconds')
+      const displayTimeSeconds = parseInt(timeStr || '60', 10)
+
+      await refreshBadgeCount(dbRepo, displayTimeSeconds)
+      console.log('[Badge] Initial startup refresh complete')
+    } catch (err) {
+      console.error('[Badge] Failed to refresh badge on startup:', err)
+    }
+  })()
+
   /** Helper: show (or re-create) main window and bring it to focus. */
   function showMainWindow(): void {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1163,6 +1170,51 @@ app.whenReady().then(async () => {
     }
   })
 })
+
+/**
+ * Helper: Refreshes the missed reminder badge count using the current settings.
+ */
+async function refreshBadgeCount(
+  repo: {
+    listMissed(
+      before?: Date,
+      since?: Date,
+      timeoutSeconds?: number
+    ): Promise<{ id: string; scheduledAt: Date; status: string }[]>
+  },
+  timeoutSeconds?: number
+): Promise<void> {
+  if (!badgeService || !db) return
+
+  let effectiveTimeout = timeoutSeconds
+  let sinceDate: Date | undefined
+  try {
+    const {
+      SettingsRepository,
+    }: Record<string, unknown> = require('../src/db/settingsRepository.js')
+    const sRepo = new (SettingsRepository as new (db: unknown) => unknown)(db) as {
+      getSetting(key: string): Promise<string | null>
+    }
+
+    if (effectiveTimeout === undefined) {
+      const timeStr = await sRepo.getSetting('notificationDisplayTimeSeconds')
+      effectiveTimeout = timeStr ? parseInt(timeStr, 10) : 60
+    }
+
+    const lastClearTime = await sRepo.getSetting('lastBadgeClearTime')
+    if (lastClearTime && lastClearTime !== '0') {
+      sinceDate = new Date(lastClearTime)
+      if (isNaN(sinceDate.getTime())) {
+        sinceDate = undefined
+      }
+    }
+  } catch (err) {
+    console.error('[Badge] Failed to fetch settings for refresh:', err)
+    if (effectiveTimeout === undefined) effectiveTimeout = 60
+  }
+
+  await badgeService.refresh(repo, sinceDate, effectiveTimeout)
+}
 
 /** Helper: sending navigation event safely even if window is newly created / loading */
 function safeNavigateToSent(missedIds?: string[]): void {
