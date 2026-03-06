@@ -141,7 +141,7 @@ const { notifications, showError, showInfo, dismiss } = useNotifications()
 onMounted(async () => {
   await settingsStore.initialize()
   store.initialize()
-  await store.fetchReminders()
+  await store.reconcileStartupReminders()
   await warnIfExactAlarmDisabledOnAndroid()
 })
 

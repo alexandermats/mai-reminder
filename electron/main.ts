@@ -985,20 +985,7 @@ app.whenReady().then(async () => {
     (...args: unknown[]) => unknown
   > & {
     listUpcoming: () => Promise<unknown>
-    cleanupPastPendingReminders: () => Promise<number>
   }
-
-  // Cleanup past pending reminders on startup
-  repo
-    .cleanupPastPendingReminders()
-    .then((count: number) => {
-      if (count > 0) {
-        console.log(`[Scheduler] Cleaned up ${count} past pending reminders.`)
-      }
-    })
-    .catch((err: unknown) => {
-      console.error('[Scheduler] Failed to cleanup past pending reminders:', err)
-    })
 
   repo
     .listUpcoming()

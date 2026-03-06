@@ -12,6 +12,7 @@ import type { CloudBackfillResult } from '../services/syncEngine'
 import { App } from '@capacitor/app'
 import { useSettingsStore } from './settings'
 import { notificationService } from '../services/notificationService'
+import { resolveNotificationWindowedAt } from '../services/schedulerService'
 import {
   DEFAULT_HOURLY_WINDOW_END,
   DEFAULT_HOURLY_WINDOW_START,
@@ -121,6 +122,100 @@ export const useReminderStore = defineStore('reminder', () => {
     } catch (err) {
       console.error('[ReminderStore] Cloud backfill failed:', err)
       throw err
+    }
+  }
+
+  let startupReconcilePromise: Promise<void> | null = null
+  async function reconcileStartupReminders(): Promise<void> {
+    if (startupReconcilePromise) {
+      await startupReconcilePromise
+      return
+    }
+
+    startupReconcilePromise = (async () => {
+      const settingsStoreRef = useSettingsStore()
+      const shouldSync = settingsStoreRef.cloudSyncEnabled
+
+      if (shouldSync) {
+        try {
+          await syncEngine.sync()
+        } catch (err) {
+          console.error('[ReminderStore] Initial cloud sync failed:', err)
+        }
+      }
+
+      await fetchReminders()
+
+      const now = new Date()
+      const overdueRecurringIds = reminders.value
+        .filter(
+          (reminder) =>
+            reminder.status === ReminderStatus.PENDING &&
+            Boolean(reminder.recurrenceRule) &&
+            reminder.scheduledAt.getTime() <= now.getTime()
+        )
+        .map((reminder) => reminder.id)
+
+      if (overdueRecurringIds.length === 0) {
+        return
+      }
+
+      const { reminderAdapter } = await import('../services/reminderAdapter')
+      const windowStart = settingsStoreRef.hourlyReminderStartTime || DEFAULT_HOURLY_WINDOW_START
+      const windowEnd = settingsStoreRef.hourlyReminderEndTime || DEFAULT_HOURLY_WINDOW_END
+
+      let changedCount = 0
+      for (const id of overdueRecurringIds) {
+        const current = reminders.value.find((reminder) => reminder.id === id)
+        if (
+          !current ||
+          current.status !== ReminderStatus.PENDING ||
+          !current.recurrenceRule ||
+          current.scheduledAt.getTime() > now.getTime()
+        ) {
+          continue
+        }
+
+        const nextScheduledAt = resolveNotificationWindowedAt(current, windowStart, windowEnd, now)
+
+        try {
+          if (nextScheduledAt && nextScheduledAt.getTime() > now.getTime()) {
+            const advanced = await reminderAdapter.update(current.id, {
+              scheduledAt: nextScheduledAt,
+              status: ReminderStatus.PENDING,
+              _isSync: true,
+            })
+            addReminder(advanced)
+          } else {
+            const completed = await reminderAdapter.update(current.id, {
+              status: ReminderStatus.SENT,
+              _isSync: true,
+            })
+            addReminder(completed)
+          }
+          changedCount += 1
+        } catch (err) {
+          console.error(
+            `[ReminderStore] Failed to reconcile overdue recurring reminder ${current.id}:`,
+            err
+          )
+        }
+      }
+
+      if (changedCount > 0 && shouldSync) {
+        try {
+          await syncEngine.sync()
+        } catch (err) {
+          console.error('[ReminderStore] Cloud sync after startup reconciliation failed:', err)
+        }
+        await fetchReminders()
+      }
+    })()
+
+    try {
+      await startupReconcilePromise
+    } finally {
+      startupReconcilePromise = null
     }
   }
 
@@ -473,13 +568,6 @@ export const useReminderStore = defineStore('reminder', () => {
       }
     })
 
-    // Trigger an initial background sync only when Cloud Sync is enabled.
-    // Periodic polling is already managed by syncEngine.start() in App.vue.
-    const settingsStoreRef = useSettingsStore()
-    if (settingsStoreRef.cloudSyncEnabled) {
-      void syncCloud()
-    }
-
     isInitialized = true
   }
 
@@ -510,6 +598,7 @@ export const useReminderStore = defineStore('reminder', () => {
     updateReminder,
     deleteReminder,
     fetchReminders,
+    reconcileStartupReminders,
     syncCloud,
     backfillCloudFromLocal,
     clearOldReminders,

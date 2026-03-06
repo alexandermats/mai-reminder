@@ -22,6 +22,14 @@ const { adapterUpdateMock, adapterCreateMock } = vi.hoisted(() => ({
   adapterCreateMock: vi.fn(),
 }))
 
+const { adapterListMock } = vi.hoisted(() => ({
+  adapterListMock: vi.fn(() => Promise.resolve([] as Reminder[])),
+}))
+
+const { syncMock } = vi.hoisted(() => ({
+  syncMock: vi.fn(() => Promise.resolve()),
+}))
+
 vi.mock('@capacitor/local-notifications', () => ({
   LocalNotifications: {
     addListener: addListenerMock,
@@ -42,8 +50,18 @@ vi.mock('@capacitor/app', () => ({
 
 vi.mock('../src/services/reminderAdapter', () => ({
   reminderAdapter: {
+    list: adapterListMock,
     update: adapterUpdateMock,
     create: adapterCreateMock,
+  },
+}))
+
+vi.mock('../src/services/syncEngine', () => ({
+  syncEngine: {
+    sync: syncMock,
+    backfillLocalToCloud: vi.fn(() =>
+      Promise.resolve({ attempted: 0, pushed: 0, failed: 0, skipped: 0 })
+    ),
   },
 }))
 
@@ -69,8 +87,12 @@ describe('reminder store duplicate guard', () => {
     setActivePinia(createPinia())
     addListenerMock.mockReset()
     appAddListenerMock.mockReset()
+    adapterListMock.mockReset()
+    adapterListMock.mockResolvedValue([])
     adapterUpdateMock.mockReset()
     adapterCreateMock.mockReset()
+    syncMock.mockReset()
+    syncMock.mockResolvedValue(undefined)
     getDeliveredNotificationsMock.mockReset()
     getDeliveredNotificationsMock.mockResolvedValue({ notifications: [] })
     vi.unstubAllGlobals()
@@ -371,5 +393,157 @@ describe('reminder store duplicate guard', () => {
     const missedIds = Array.from(store.missedReminderIds)
     expect(missedIds).toContain('r-missed')
     expect(missedIds).not.toContain('r-recent')
+  })
+
+  it('reconciles overdue recurring reminders in place on startup without creating duplicates', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const recurring = {
+      ...makeReminder('r-startup-1', 'Stretch'),
+      scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+    }
+
+    adapterListMock.mockResolvedValue([recurring])
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
+      ...recurring,
+      ...changes,
+      status: ReminderStatus.PENDING,
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      updatedAt: now,
+    }))
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      recurring.id,
+      expect.objectContaining({
+        status: ReminderStatus.PENDING,
+        _isSync: true,
+      })
+    )
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].id).toBe(recurring.id)
+    expect(store.reminders[0].status).toBe(ReminderStatus.PENDING)
+    expect(store.reminders[0].scheduledAt.toISOString()).toBe('2026-03-07T10:00:00.000Z')
+  })
+
+  it('marks overdue recurring reminder as sent when series has no next occurrence', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const finishedSeries = {
+      ...makeReminder('r-startup-finished', 'One-off recurring'),
+      scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;COUNT=1',
+    }
+
+    adapterListMock.mockResolvedValue([finishedSeries])
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
+      ...finishedSeries,
+      ...changes,
+      status: ReminderStatus.SENT,
+      updatedAt: now,
+    }))
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      finishedSeries.id,
+      expect.objectContaining({
+        status: ReminderStatus.SENT,
+        _isSync: true,
+      })
+    )
+    expect(store.reminders[0].status).toBe(ReminderStatus.SENT)
+  })
+
+  it('runs cloud sync before and after startup reconciliation when cloud sync is enabled', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const order: string[] = []
+    const recurring = {
+      ...makeReminder('r-startup-sync', 'Sync me'),
+      scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+    }
+    const reconciled = {
+      ...recurring,
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      updatedAt: now,
+    }
+
+    adapterListMock
+      .mockImplementationOnce(async () => {
+        order.push('list')
+        return [recurring]
+      })
+      .mockImplementationOnce(async () => {
+        order.push('list')
+        return [reconciled]
+      })
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => {
+      order.push('update')
+      return {
+        ...recurring,
+        ...changes,
+        status: ReminderStatus.PENDING,
+        scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+        updatedAt: now,
+      }
+    })
+    syncMock.mockImplementation(async () => {
+      order.push('sync')
+    })
+
+    const store = useReminderStore()
+    const settingsStore = (await import('../src/stores/settings')).useSettingsStore()
+    settingsStore.cloudSyncEnabled = true
+
+    await store.reconcileStartupReminders()
+
+    expect(order).toEqual(['sync', 'list', 'update', 'sync', 'list'])
+  })
+
+  it('is idempotent across repeated startup reconciliation runs', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const state = {
+      reminder: {
+        ...makeReminder('r-startup-idempotent', 'Do not duplicate'),
+        scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
+        recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      },
+    }
+
+    adapterListMock.mockImplementation(async () => [state.reminder])
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => {
+      state.reminder = {
+        ...state.reminder,
+        ...changes,
+        status: ReminderStatus.PENDING,
+        scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+        updatedAt: now,
+      }
+      return state.reminder
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledTimes(1)
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].id).toBe(state.reminder.id)
   })
 })
