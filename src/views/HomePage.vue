@@ -23,7 +23,12 @@
             <ion-label>{{ t('reminder.status.pending') }}</ion-label>
           </ion-segment-button>
           <ion-segment-button :value="ReminderStatus.SENT" data-test="sent-segment">
-            <ion-label>{{ t('reminder.status.sent') }}</ion-label>
+            <ion-label>
+              {{ t('reminder.status.sent') }}
+              <span v-if="sentMissedCount > 0" data-test="sent-missed-count" class="sent-count"
+                >({{ sentMissedCount }})</span
+              >
+            </ion-label>
           </ion-segment-button>
           <ion-segment-button :value="ReminderStatus.CANCELLED" data-test="cancelled-segment">
             <ion-label>{{ t('reminder.status.cancelled') }}</ion-label>
@@ -68,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -130,6 +135,7 @@ const recurringEditSource = ref<Reminder | null>(null)
 const viewMode = ref<'list' | 'calendar'>('list')
 const selectedDate = ref<Date | null>(null)
 const hasPromptedExactAlarmInSession = ref(false)
+const sentMissedCount = computed(() => store.sentMissedCount)
 
 watch(viewMode, (newMode) => {
   if (newMode === 'list') {
@@ -465,5 +471,10 @@ ion-footer {
   font-size: 0.65rem !important;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+.sent-count {
+  margin-left: 4px;
+  font-weight: 700;
 }
 </style>

@@ -12,13 +12,17 @@ import type { CloudBackfillResult } from '../services/syncEngine'
 import { App } from '@capacitor/app'
 import { useSettingsStore } from './settings'
 import { notificationService } from '../services/notificationService'
-import { resolveNotificationWindowedAt } from '../services/schedulerService'
+import {
+  resolveLatestMissedScheduledAt,
+  resolveNotificationWindowedAt,
+} from '../services/schedulerService'
 import {
   DEFAULT_HOURLY_WINDOW_END,
   DEFAULT_HOURLY_WINDOW_START,
   isHourlyRule,
   isWithinHourlyWindow,
 } from '../utils/hourlyRecurrence'
+import { getReminderSeriesBaseId } from '../utils/reminderSeries'
 
 /**
  * Interface for reminders coming over IPC, where Date objects
@@ -65,6 +69,8 @@ export const useReminderStore = defineStore('reminder', () => {
       })
   })
 
+  const sentMissedCount = computed(() => missedReminderIds.value.size)
+
   function setReminders(data: Reminder[]) {
     reminders.value = data
   }
@@ -87,6 +93,81 @@ export const useReminderStore = defineStore('reminder', () => {
 
   function deleteReminder(id: string) {
     reminders.value = reminders.value.filter((r) => r.id !== id)
+  }
+
+  async function collapseRecurringPendingDuplicates(
+    referenceNow: Date = new Date()
+  ): Promise<number> {
+    const nowTs = referenceNow.getTime()
+    const recurringPendingByBase = new Map<string, Reminder[]>()
+
+    for (const item of reminders.value) {
+      if (
+        item.status !== ReminderStatus.PENDING ||
+        !item.recurrenceRule ||
+        item.scheduledAt.getTime() <= nowTs
+      ) {
+        continue
+      }
+      const baseId = getReminderSeriesBaseId(item.id)
+      const existing = recurringPendingByBase.get(baseId)
+      if (existing) {
+        existing.push(item)
+      } else {
+        recurringPendingByBase.set(baseId, [item])
+      }
+    }
+
+    const { reminderAdapter } = await import('../services/reminderAdapter')
+    let changedCount = 0
+
+    for (const group of recurringPendingByBase.values()) {
+      if (group.length <= 1) continue
+
+      group.sort((a, b) => {
+        const timeDiff = a.scheduledAt.getTime() - b.scheduledAt.getTime()
+        if (timeDiff !== 0) return timeDiff
+        const aHasMissedSuffix = a.id.includes('-missed-')
+        const bHasMissedSuffix = b.id.includes('-missed-')
+        if (aHasMissedSuffix !== bHasMissedSuffix) {
+          return aHasMissedSuffix ? 1 : -1
+        }
+        return b.updatedAt.getTime() - a.updatedAt.getTime()
+      })
+
+      const duplicates = group.slice(1)
+      for (const duplicate of duplicates) {
+        try {
+          const cancelled = await reminderAdapter.update(duplicate.id, {
+            status: ReminderStatus.CANCELLED,
+            _isSync: true,
+          })
+          addReminder(cancelled)
+          changedCount += 1
+        } catch (err) {
+          console.error(
+            `[ReminderStore] Failed to collapse duplicate pending recurring reminder ${duplicate.id}:`,
+            err
+          )
+        }
+      }
+    }
+
+    return changedCount
+  }
+
+  let recurringPendingDedupePromise: Promise<number> | null = null
+  async function runRecurringPendingDedupe(referenceNow: Date = new Date()): Promise<number> {
+    if (recurringPendingDedupePromise) {
+      return recurringPendingDedupePromise
+    }
+
+    recurringPendingDedupePromise = collapseRecurringPendingDuplicates(referenceNow)
+    try {
+      return await recurringPendingDedupePromise
+    } finally {
+      recurringPendingDedupePromise = null
+    }
   }
 
   async function fetchReminders() {
@@ -147,59 +228,138 @@ export const useReminderStore = defineStore('reminder', () => {
       await fetchReminders()
 
       const now = new Date()
-      const overdueRecurringIds = reminders.value
+      const overduePendingIds = reminders.value
         .filter(
           (reminder) =>
             reminder.status === ReminderStatus.PENDING &&
-            Boolean(reminder.recurrenceRule) &&
             reminder.scheduledAt.getTime() <= now.getTime()
         )
         .map((reminder) => reminder.id)
-
-      if (overdueRecurringIds.length === 0) {
-        return
-      }
 
       const { reminderAdapter } = await import('../services/reminderAdapter')
       const windowStart = settingsStoreRef.hourlyReminderStartTime || DEFAULT_HOURLY_WINDOW_START
       const windowEnd = settingsStoreRef.hourlyReminderEndTime || DEFAULT_HOURLY_WINDOW_END
 
       let changedCount = 0
-      for (const id of overdueRecurringIds) {
+      const startupMissedIds = new Set<string>()
+      for (const id of overduePendingIds) {
         const current = reminders.value.find((reminder) => reminder.id === id)
         if (
           !current ||
           current.status !== ReminderStatus.PENDING ||
-          !current.recurrenceRule ||
           current.scheduledAt.getTime() > now.getTime()
         ) {
           continue
         }
 
-        const nextScheduledAt = resolveNotificationWindowedAt(current, windowStart, windowEnd, now)
-
         try {
+          if (!current.recurrenceRule) {
+            const sentOneTime = await reminderAdapter.update(current.id, {
+              status: ReminderStatus.SENT,
+              scheduledAt: current.scheduledAt,
+              _isSync: true,
+            })
+            addReminder(sentOneTime)
+            startupMissedIds.add(sentOneTime.id)
+            changedCount += 1
+            continue
+          }
+
+          const latestMissedAt = resolveLatestMissedScheduledAt(current, now)
+          if (!latestMissedAt) {
+            continue
+          }
+
+          const nextScheduledAt = resolveNotificationWindowedAt(
+            current,
+            windowStart,
+            windowEnd,
+            now
+          )
+
           if (nextScheduledAt && nextScheduledAt.getTime() > now.getTime()) {
-            const advanced = await reminderAdapter.update(current.id, {
+            const baseId = getReminderSeriesBaseId(current.id)
+            const existingAdvanced = reminders.value.find((item) => {
+              if (item.id === current.id) return false
+              if (item.status !== ReminderStatus.PENDING) return false
+              if (item.scheduledAt.getTime() <= now.getTime()) return false
+              return getReminderSeriesBaseId(item.id) === baseId
+            })
+
+            // Another occurrence at the computed next timestamp already exists.
+            // Keep that pending one, and mark the overdue record as the missed sent instance.
+            if (existingAdvanced) {
+              const sentCurrent = await reminderAdapter.update(current.id, {
+                scheduledAt: latestMissedAt,
+                status: ReminderStatus.SENT,
+                _isSync: true,
+              })
+              addReminder(sentCurrent)
+              startupMissedIds.add(sentCurrent.id)
+              changedCount += 1
+              continue
+            }
+
+            let sentId = `${baseId}-missed-${latestMissedAt.getTime()}`
+            while (sentId === current.id) {
+              sentId = `${baseId}-missed-${latestMissedAt.getTime() + 1}`
+            }
+
+            try {
+              const sentRecurring = await reminderAdapter.create({
+                id: sentId,
+                title: current.title,
+                originalText: current.originalText,
+                language: current.language,
+                scheduledAt: latestMissedAt,
+                source: current.source,
+                parserMode: current.parserMode,
+                status: ReminderStatus.SENT,
+                recurrenceRule: current.recurrenceRule,
+                ...(typeof current.parseConfidence === 'number'
+                  ? { parseConfidence: current.parseConfidence }
+                  : {}),
+                _isSync: true,
+              })
+              addReminder(sentRecurring)
+              startupMissedIds.add(sentRecurring.id)
+            } catch (createErr) {
+              const existingSent = await reminderAdapter.getById(sentId)
+              if (!existingSent) {
+                throw createErr
+              }
+              addReminder(existingSent)
+              startupMissedIds.add(existingSent.id)
+            }
+
+            const advancedSeries = await reminderAdapter.update(current.id, {
               scheduledAt: nextScheduledAt,
               status: ReminderStatus.PENDING,
               _isSync: true,
             })
-            addReminder(advanced)
+            addReminder(advancedSeries)
           } else {
             const completed = await reminderAdapter.update(current.id, {
+              scheduledAt: latestMissedAt,
               status: ReminderStatus.SENT,
               _isSync: true,
             })
             addReminder(completed)
+            startupMissedIds.add(completed.id)
           }
+
           changedCount += 1
         } catch (err) {
-          console.error(
-            `[ReminderStore] Failed to reconcile overdue recurring reminder ${current.id}:`,
-            err
-          )
+          console.error(`[ReminderStore] Failed to reconcile overdue reminder ${current.id}:`, err)
         }
+      }
+
+      // Safety net for historical and race-condition data: ensure there is only one
+      // future pending reminder per recurring series base id.
+      changedCount += await runRecurringPendingDedupe(now)
+
+      if (startupMissedIds.size > 0) {
+        missedReminderIds.value = startupMissedIds
       }
 
       if (changedCount > 0 && shouldSync) {
@@ -446,6 +606,9 @@ export const useReminderStore = defineStore('reminder', () => {
         if (!hydrated) return
         console.log('[ReminderStore] Received reminder:created:', hydrated.id)
         addReminder(hydrated)
+        if (hydrated.status === ReminderStatus.PENDING && hydrated.recurrenceRule) {
+          void runRecurringPendingDedupe()
+        }
       })
     }
     if (typeof window !== 'undefined' && window.electronAPI?.onReminderUpdated) {
@@ -454,6 +617,9 @@ export const useReminderStore = defineStore('reminder', () => {
         if (!hydrated) return
         console.log('[ReminderStore] Received reminder:updated:', hydrated.id)
         addReminder(hydrated)
+        if (hydrated.status === ReminderStatus.PENDING && hydrated.recurrenceRule) {
+          void runRecurringPendingDedupe()
+        }
       })
     }
     if (typeof window !== 'undefined' && window.electronAPI?.onReminderDeleted) {
@@ -591,6 +757,7 @@ export const useReminderStore = defineStore('reminder', () => {
     error,
     filterStatus,
     missedReminderIds,
+    sentMissedCount,
     upcomingReminders,
     filteredReminders,
     setReminders,

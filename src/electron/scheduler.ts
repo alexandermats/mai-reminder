@@ -63,6 +63,12 @@ export class ReminderScheduler {
    */
   public schedule(reminder: Reminder | ScheduledReminder): void {
     this.processing.delete(reminder.id)
+    if (reminder.status !== ReminderStatus.PENDING) {
+      // Never track non-pending reminders; also clears stale tracked entries
+      // when a reminder transitions away from pending.
+      this.scheduled.delete(reminder.id)
+      return
+    }
     this.scheduled.set(reminder.id, {
       id: reminder.id,
       title: reminder.title,
@@ -104,6 +110,11 @@ export class ReminderScheduler {
 
     for (const [id, reminder] of Array.from(this.scheduled.entries())) {
       if (this.processing.has(id)) {
+        continue
+      }
+      if (reminder.status !== ReminderStatus.PENDING) {
+        this.scheduled.delete(id)
+        this.processing.delete(id)
         continue
       }
       // Compare the unix timestamps directly to be timezone-agnostic

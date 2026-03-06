@@ -31,3 +31,11 @@ Strictly avoid using `any` in tests or implementation (e.g., use `unknown` or de
 ## Parser gotchas
 
 - `chrono-node` can miss or misread spoken times with number words (for example, EN `at six pm`, RU `в шесть вечера`). Keep locale-specific normalization in local parser preprocessors (`enTimeNormalizer` / `ruTimeNormalizer`) and add tests when expanding phrase coverage.
+
+## Store/Test gotchas
+
+- `useReminderStore().initialize()` is guarded by a module-level `isInitialized` flag. In Vitest, that flag persists across tests unless modules are reloaded, so callback-registration tests can become order-dependent.
+
+## Electron scheduler gotchas
+
+- Never schedule non-`pending` reminders (`sent`/`cancelled`/`dismissed`) in the main-process scheduler. If `sent` records are scheduled, they can be re-triggered and accidentally generate extra recurring occurrences.

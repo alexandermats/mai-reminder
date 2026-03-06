@@ -90,6 +90,39 @@ export function resolveNotificationScheduledAt(
 }
 
 /**
+ * Resolve the latest occurrence at or before `now` for a reminder series.
+ * For one-time reminders, returns scheduledAt when it is in the past.
+ */
+export function resolveLatestMissedScheduledAt(
+  reminder: SeriesSchedulerReminder,
+  now: Date = new Date()
+): Date | undefined {
+  if (reminder.scheduledAt.getTime() > now.getTime()) {
+    return undefined
+  }
+
+  if (!reminder.recurrenceRule) {
+    return reminder.scheduledAt
+  }
+
+  const rule = parseRule(reminder)
+  if (!rule) {
+    return reminder.scheduledAt
+  }
+
+  const latest = rule.before(now, true) ?? undefined
+  if (!latest) {
+    return reminder.scheduledAt
+  }
+
+  if (latest.getTime() < reminder.scheduledAt.getTime()) {
+    return reminder.scheduledAt
+  }
+
+  return latest
+}
+
+/**
  * Resolve the notification time for an hourly-recurrence reminder,
  * snapping it into the configured hourly window.
  * For non-hourly rules, falls back to the standard resolution.

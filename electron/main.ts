@@ -368,8 +368,15 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
         const createFn = repo.create as (input: unknown) => Promise<CoreReminder>
         const reminder = await createFn.call(repo, input)
         console.log('[IPC] reminders:create success:', reminder.id)
-        if (scheduler && reminder.scheduledAt) {
+        if (scheduler && reminder.scheduledAt && reminder.status === 'pending') {
           scheduler.schedule(reminder)
+        } else if (
+          scheduler &&
+          (reminder.status === 'sent' ||
+            reminder.status === 'cancelled' ||
+            reminder.status === 'dismissed')
+        ) {
+          scheduler.cancel(reminder.id)
         }
         // Broadcast to all windows that a reminder was created
         if (mainWindow) {

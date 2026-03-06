@@ -3,6 +3,7 @@ import { ReminderStatus } from '../../src/types/reminder'
 import {
   alignRecurrenceRuleTime,
   getNextScheduledAt,
+  resolveLatestMissedScheduledAt,
   resolveNotificationScheduledAt,
   resolveNotificationWindowedAt,
 } from '../../src/services/schedulerService'
@@ -141,6 +142,23 @@ describe('schedulerService', () => {
       expect(resolved).toBeDefined()
       expect(resolved!.getHours()).toBeGreaterThanOrEqual(9)
       expect(resolved!.getHours()).toBeLessThanOrEqual(22)
+    })
+  })
+
+  describe('resolveLatestMissedScheduledAt', () => {
+    it('returns the most recent daily occurrence at or before now', () => {
+      const latest = resolveLatestMissedScheduledAt(
+        {
+          id: 'daily-missed',
+          title: 'Daily',
+          scheduledAt: new Date('2026-03-05T10:00:00.000Z'),
+          status: ReminderStatus.PENDING,
+          recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+        },
+        new Date('2026-03-06T10:30:00.000Z')
+      )
+
+      expect(latest?.toISOString()).toBe('2026-03-06T10:00:00.000Z')
     })
   })
 })

@@ -2,6 +2,7 @@ import type { Reminder, ReminderInput } from '../types/reminder'
 import { ReminderStatus } from '../types/reminder'
 import type { IReminderRepository } from '../types/repository'
 import { getNextScheduledAt } from './schedulerService'
+import { getReminderSeriesBaseId } from '../utils/reminderSeries'
 
 type TriggerTransitionRepository = Pick<IReminderRepository, 'update' | 'create'>
 
@@ -21,8 +22,9 @@ export async function applyTriggeredReminderTransition(
     return { sentReminder }
   }
 
-  // Extract base ID (in case this reminder was already a generated next occurrence)
-  const baseId = reminder.id.split('-next-')[0]
+  // Normalize to canonical series id so generated reminder IDs never chain from
+  // previously generated suffixes like `-missed-*` or `-next-*`.
+  const baseId = getReminderSeriesBaseId(reminder.id)
 
   let nextTimestamp = nextScheduledAt.getTime()
   let deterministicId = `${baseId}-next-${nextTimestamp}`

@@ -66,4 +66,27 @@ describe('applyTriggeredReminderTransition', () => {
     })
     expect(result.nextReminder?.id).toBe('recurring-1-next')
   })
+
+  it('creates next occurrence from canonical series id when current id contains generated suffixes', async () => {
+    const reminder = makeReminder({
+      id: 'recurring-1-missed-1772793300000',
+      scheduledAt: new Date('2026-03-01T10:00:00.000Z'),
+    })
+    const nextScheduledAt = new Date('2026-03-01T11:00:00.000Z')
+    const update = vi.fn().mockResolvedValue({ ...reminder, status: ReminderStatus.SENT })
+    const create = vi.fn().mockResolvedValue({
+      ...reminder,
+      id: `recurring-1-next-${nextScheduledAt.getTime()}`,
+      scheduledAt: nextScheduledAt,
+      status: ReminderStatus.PENDING,
+    })
+
+    await applyTriggeredReminderTransition(reminder, { update, create }, nextScheduledAt)
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: `recurring-1-next-${nextScheduledAt.getTime()}`,
+      })
+    )
+  })
 })

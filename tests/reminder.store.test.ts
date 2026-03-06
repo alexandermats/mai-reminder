@@ -22,6 +22,10 @@ const { adapterUpdateMock, adapterCreateMock } = vi.hoisted(() => ({
   adapterCreateMock: vi.fn(),
 }))
 
+const { adapterGetByIdMock } = vi.hoisted(() => ({
+  adapterGetByIdMock: vi.fn(() => Promise.resolve(null as Reminder | null)),
+}))
+
 const { adapterListMock } = vi.hoisted(() => ({
   adapterListMock: vi.fn(() => Promise.resolve([] as Reminder[])),
 }))
@@ -51,6 +55,7 @@ vi.mock('@capacitor/app', () => ({
 vi.mock('../src/services/reminderAdapter', () => ({
   reminderAdapter: {
     list: adapterListMock,
+    getById: adapterGetByIdMock,
     update: adapterUpdateMock,
     create: adapterCreateMock,
   },
@@ -91,6 +96,26 @@ describe('reminder store duplicate guard', () => {
     adapterListMock.mockResolvedValue([])
     adapterUpdateMock.mockReset()
     adapterCreateMock.mockReset()
+    adapterCreateMock.mockImplementation(async (input: Record<string, unknown>) => ({
+      id: String(input.id ?? 'created-default'),
+      title: String(input.title ?? 'Created'),
+      originalText: String(input.originalText ?? 'Created'),
+      language: (input.language as ReminderLanguage) ?? ReminderLanguage.EN,
+      scheduledAt:
+        input.scheduledAt instanceof Date
+          ? input.scheduledAt
+          : new Date('2026-03-06T10:00:00.000Z'),
+      source: (input.source as ReminderSource) ?? ReminderSource.TEXT,
+      parserMode: (input.parserMode as ReminderParserMode) ?? ReminderParserMode.LOCAL,
+      status: (input.status as ReminderStatus) ?? ReminderStatus.PENDING,
+      parseConfidence:
+        typeof input.parseConfidence === 'number' ? input.parseConfidence : undefined,
+      recurrenceRule: typeof input.recurrenceRule === 'string' ? input.recurrenceRule : undefined,
+      createdAt: new Date('2026-03-06T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-06T09:00:00.000Z'),
+    }))
+    adapterGetByIdMock.mockReset()
+    adapterGetByIdMock.mockResolvedValue(null)
     syncMock.mockReset()
     syncMock.mockResolvedValue(undefined)
     getDeliveredNotificationsMock.mockReset()
@@ -112,6 +137,85 @@ describe('reminder store duplicate guard', () => {
 
     expect(store.reminders).toHaveLength(1)
     expect(store.reminders[0].title).toBe('Workout updated')
+  })
+
+  it('collapses future recurring duplicate introduced by late IPC reminder:created event', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const onCreatedCallbacks: Array<(reminder: Reminder) => void> = []
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        electronAPI: {
+          onReminderCreated: (cb: (reminder: Reminder) => void) => {
+            onCreatedCallbacks.push(cb)
+          },
+        },
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const existing = {
+      ...makeReminder('series-race', 'Hydrate'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:00:00.000Z'),
+    }
+    const lateDuplicate = {
+      ...makeReminder('series-race-next-1772877600000', 'Hydrate'),
+      scheduledAt: new Date('2026-03-08T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:05:00.000Z'),
+    }
+
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === lateDuplicate.id) {
+        return {
+          ...lateDuplicate,
+          ...changes,
+          status: ReminderStatus.CANCELLED,
+          updatedAt: now,
+        }
+      }
+
+      return {
+        ...existing,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    store.addReminder(existing)
+    store.initialize()
+
+    onCreatedCallbacks[0]?.(lateDuplicate)
+    for (let i = 0; i < 20 && adapterUpdateMock.mock.calls.length === 0; i += 1) {
+      await Promise.resolve()
+    }
+    for (
+      let i = 0;
+      i < 20 && store.reminders.filter((item) => item.status === ReminderStatus.PENDING).length > 1;
+      i += 1
+    ) {
+      await Promise.resolve()
+    }
+
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      lateDuplicate.id,
+      expect.objectContaining({
+        status: ReminderStatus.CANCELLED,
+        _isSync: true,
+      })
+    )
+
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(existing.id)
   })
 
   it('keeps a single reminder when local add and IPC created event both fire', () => {
@@ -395,41 +499,387 @@ describe('reminder store duplicate guard', () => {
     expect(missedIds).not.toContain('r-recent')
   })
 
-  it('reconciles overdue recurring reminders in place on startup without creating duplicates', async () => {
+  it.each([
+    {
+      name: 'hourly',
+      scheduledAt: '2026-03-06T09:00:00.000Z',
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0',
+      now: '2026-03-06T10:30:00.000Z',
+      expectedLatest: '2026-03-06T09:00:00.000Z',
+      expectedNext: '2026-03-06T11:00:00.000Z',
+    },
+    {
+      name: 'daily',
+      scheduledAt: '2026-03-05T10:00:00.000Z',
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      now: '2026-03-06T10:30:00.000Z',
+      expectedLatest: '2026-03-06T10:00:00.000Z',
+      expectedNext: '2026-03-07T10:00:00.000Z',
+    },
+    {
+      name: 'weekly',
+      scheduledAt: '2026-03-03T09:00:00.000Z',
+      recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1',
+      now: '2026-03-06T10:30:00.000Z',
+      expectedLatest: '2026-03-03T09:00:00.000Z',
+      expectedNext: '2026-03-10T09:00:00.000Z',
+    },
+    {
+      name: 'weekly-by-day',
+      scheduledAt: '2026-03-02T09:00:00.000Z',
+      recurrenceRule: 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=9;BYMINUTE=0;BYSECOND=0',
+      now: '2026-03-06T10:30:00.000Z',
+      expectedLatest: '2026-03-02T09:00:00.000Z',
+      expectedNext: '2026-03-09T09:00:00.000Z',
+    },
+  ])(
+    'creates one missed sent instance and advances recurring $name reminder to next valid date/time',
+    async ({ name, scheduledAt, recurrenceRule, now, expectedLatest, expectedNext }) => {
+      vi.useFakeTimers()
+      const nowDate = new Date(now)
+      vi.setSystemTime(nowDate)
+
+      const recurring = {
+        ...makeReminder(`r-startup-${name}`, 'Stretch'),
+        scheduledAt: new Date(scheduledAt),
+        recurrenceRule,
+      }
+
+      adapterListMock.mockResolvedValue([recurring])
+      adapterCreateMock.mockImplementation(async (input: Record<string, unknown>) => ({
+        ...recurring,
+        ...input,
+        id: String(input.id),
+        status: ReminderStatus.SENT,
+        scheduledAt: input.scheduledAt as Date,
+        createdAt: nowDate,
+        updatedAt: nowDate,
+      }))
+      adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
+        ...recurring,
+        ...changes,
+        status: ReminderStatus.PENDING,
+        updatedAt: nowDate,
+      }))
+
+      const store = useReminderStore()
+      await store.reconcileStartupReminders()
+
+      const sentCreated = vi.mocked(adapterCreateMock).mock.calls[0]?.[0] as
+        | { id: string; scheduledAt: Date; status: ReminderStatus }
+        | undefined
+      expect(sentCreated).toBeDefined()
+      expect(sentCreated?.status).toBe(ReminderStatus.SENT)
+      expect(sentCreated?.scheduledAt.toISOString()).toBe(expectedLatest)
+
+      expect(adapterUpdateMock).toHaveBeenCalledWith(
+        recurring.id,
+        expect.objectContaining({
+          scheduledAt: new Date(expectedNext),
+          status: ReminderStatus.PENDING,
+          _isSync: true,
+        })
+      )
+
+      const pending = store.reminders.find((item) => item.id === recurring.id)
+      const sent = store.reminders.find((item) => item.id !== recurring.id)
+      expect(pending?.status).toBe(ReminderStatus.PENDING)
+      expect(pending?.scheduledAt.toISOString()).toBe(expectedNext)
+      expect(sent?.status).toBe(ReminderStatus.SENT)
+      expect(store.sentMissedCount).toBe(1)
+      expect(store.missedReminderIds.has(String(sentCreated?.id))).toBe(true)
+    }
+  )
+
+  it('moves overdue one-time reminder to sent and increments missed counter', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-03-06T10:30:00.000Z')
     vi.setSystemTime(now)
 
-    const recurring = {
-      ...makeReminder('r-startup-1', 'Stretch'),
+    const oneTime = {
+      ...makeReminder('r-startup-onetime', 'Pay bills'),
       scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
-      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      recurrenceRule: undefined,
     }
 
-    adapterListMock.mockResolvedValue([recurring])
+    adapterListMock.mockResolvedValue([oneTime])
     adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
-      ...recurring,
+      ...oneTime,
       ...changes,
-      status: ReminderStatus.PENDING,
-      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      status: ReminderStatus.SENT,
       updatedAt: now,
     }))
 
     const store = useReminderStore()
     await store.reconcileStartupReminders()
 
+    expect(adapterCreateMock).not.toHaveBeenCalled()
     expect(adapterUpdateMock).toHaveBeenCalledWith(
-      recurring.id,
+      oneTime.id,
       expect.objectContaining({
-        status: ReminderStatus.PENDING,
+        status: ReminderStatus.SENT,
         _isSync: true,
       })
     )
+    expect(store.sentMissedCount).toBe(1)
+    expect(store.missedReminderIds.has(oneTime.id)).toBe(true)
+    expect(store.reminders.find((r) => r.id === oneTime.id)?.status).toBe(ReminderStatus.SENT)
+  })
+
+  it('does not duplicate Active recurring reminders when next pending occurrence already exists', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const overdueCurrent = {
+      ...makeReminder('series-1', 'Daily standup'),
+      scheduledAt: new Date('2026-03-05T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+    }
+    const existingNext = {
+      ...makeReminder('series-1-next-1772791200000', 'Daily standup'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+    }
+
+    adapterListMock.mockResolvedValue([overdueCurrent, existingNext])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === overdueCurrent.id) {
+        return {
+          ...overdueCurrent,
+          ...changes,
+          status: ReminderStatus.SENT,
+          updatedAt: now,
+        }
+      }
+      return {
+        ...existingNext,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
     expect(adapterCreateMock).not.toHaveBeenCalled()
-    expect(store.reminders).toHaveLength(1)
-    expect(store.reminders[0].id).toBe(recurring.id)
-    expect(store.reminders[0].status).toBe(ReminderStatus.PENDING)
-    expect(store.reminders[0].scheduledAt.toISOString()).toBe('2026-03-07T10:00:00.000Z')
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      overdueCurrent.id,
+      expect.objectContaining({
+        status: ReminderStatus.SENT,
+        _isSync: true,
+      })
+    )
+
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(existingNext.id)
+    expect(store.sentMissedCount).toBe(1)
+  })
+
+  it('does not create another Active recurring reminder when an already-advanced future instance exists', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const overdueCurrent = {
+      ...makeReminder('series-2', 'Weekly review'),
+      scheduledAt: new Date('2026-03-01T09:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+    }
+    const existingFuture = {
+      ...makeReminder('series-2-next-1772877600000', 'Weekly review'),
+      scheduledAt: new Date('2026-03-08T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+    }
+
+    adapterListMock.mockResolvedValue([overdueCurrent, existingFuture])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === overdueCurrent.id) {
+        return {
+          ...overdueCurrent,
+          ...changes,
+          status: ReminderStatus.SENT,
+          updatedAt: now,
+        }
+      }
+      return {
+        ...existingFuture,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    const pending = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(pending).toHaveLength(1)
+    expect(pending[0].id).toBe(existingFuture.id)
+    expect(store.reminders.find((item) => item.id === overdueCurrent.id)?.status).toBe(
+      ReminderStatus.SENT
+    )
+  })
+
+  it('does not branch recurrence from pending reminders with historical missed suffix ids', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const overdueMissedId = {
+      ...makeReminder('series-4-missed-1772793300000', 'Read'),
+      scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+    }
+    const canonicalNext = {
+      ...makeReminder('series-4-next-1772877600000', 'Read'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+    }
+
+    adapterListMock.mockResolvedValue([overdueMissedId, canonicalNext])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === overdueMissedId.id) {
+        return {
+          ...overdueMissedId,
+          ...changes,
+          status: ReminderStatus.SENT,
+          updatedAt: now,
+        }
+      }
+      return {
+        ...canonicalNext,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      overdueMissedId.id,
+      expect.objectContaining({
+        status: ReminderStatus.SENT,
+        _isSync: true,
+      })
+    )
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(canonicalNext.id)
+  })
+
+  it('collapses historical duplicate future pending recurring reminders on startup', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const primary = {
+      ...makeReminder('series-3-next-1772791200000', 'Hydrate'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:00:00.000Z'),
+    }
+    const duplicateLater = {
+      ...makeReminder('series-3-next-1772877600000', 'Hydrate'),
+      scheduledAt: new Date('2026-03-08T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:05:00.000Z'),
+    }
+
+    adapterListMock.mockResolvedValue([primary, duplicateLater])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === duplicateLater.id) {
+        return {
+          ...duplicateLater,
+          ...changes,
+          status: ReminderStatus.CANCELLED,
+          updatedAt: now,
+        }
+      }
+      return {
+        ...primary,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      duplicateLater.id,
+      expect.objectContaining({
+        status: ReminderStatus.CANCELLED,
+        _isSync: true,
+      })
+    )
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(primary.id)
+    expect(store.reminders.find((item) => item.id === duplicateLater.id)?.status).toBe(
+      ReminderStatus.CANCELLED
+    )
+  })
+
+  it('prefers canonical future pending reminder over missed-suffix duplicate at same time', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-03-06T10:30:00.000Z')
+    vi.setSystemTime(now)
+
+    const canonical = {
+      ...makeReminder('series-5-next-1772791200000', 'Read'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:00:00.000Z'),
+    }
+    const missedSuffix = {
+      ...makeReminder('series-5-missed-1772793300000-next-1772791200000', 'Read'),
+      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      status: ReminderStatus.PENDING,
+      updatedAt: new Date('2026-03-06T09:05:00.000Z'),
+    }
+
+    adapterListMock.mockResolvedValue([missedSuffix, canonical])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === missedSuffix.id) {
+        return {
+          ...missedSuffix,
+          ...changes,
+          status: ReminderStatus.CANCELLED,
+          updatedAt: now,
+        }
+      }
+      return {
+        ...canonical,
+        ...changes,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      missedSuffix.id,
+      expect.objectContaining({
+        status: ReminderStatus.CANCELLED,
+        _isSync: true,
+      })
+    )
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(canonical.id)
   })
 
   it('marks overdue recurring reminder as sent when series has no next occurrence', async () => {
@@ -527,6 +977,15 @@ describe('reminder store duplicate guard', () => {
     }
 
     adapterListMock.mockImplementation(async () => [state.reminder])
+    adapterCreateMock.mockImplementation(async (input: Record<string, unknown>) => ({
+      ...state.reminder,
+      ...input,
+      id: String(input.id),
+      status: ReminderStatus.SENT,
+      scheduledAt: input.scheduledAt as Date,
+      createdAt: now,
+      updatedAt: now,
+    }))
     adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => {
       state.reminder = {
         ...state.reminder,
@@ -543,7 +1002,9 @@ describe('reminder store duplicate guard', () => {
     await store.reconcileStartupReminders()
 
     expect(adapterUpdateMock).toHaveBeenCalledTimes(1)
+    expect(adapterCreateMock).toHaveBeenCalledTimes(1)
+    expect(store.sentMissedCount).toBe(1)
     expect(store.reminders).toHaveLength(1)
-    expect(store.reminders[0].id).toBe(state.reminder.id)
+    expect(store.reminders.some((item) => item.id === state.reminder.id)).toBe(true)
   })
 })

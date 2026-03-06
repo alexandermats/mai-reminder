@@ -49,6 +49,28 @@ describe('ReminderScheduler', () => {
     expect(scheduled[0].id).toBe('2')
   })
 
+  it('does not track non-pending reminders when scheduled', () => {
+    const scheduler = new ReminderScheduler()
+    const callback = vi.fn()
+    scheduler.onReminderDue(callback)
+
+    const now = new Date('2026-03-01T10:00:00.000Z')
+    vi.setSystemTime(now)
+    scheduler.start()
+
+    scheduler.schedule({
+      id: 'sent-1',
+      title: 'Already sent',
+      scheduledAt: new Date(now.getTime() - 60_000),
+      status: ReminderStatus.SENT,
+    })
+
+    expect(scheduler.listScheduled()).toHaveLength(0)
+    vi.advanceTimersByTime(2000)
+    expect(callback).not.toHaveBeenCalled()
+    scheduler.stop()
+  })
+
   it('triggers callback for due reminders and removes them from tracking string comparison', () => {
     const scheduler = new ReminderScheduler()
     const callback = vi.fn()
