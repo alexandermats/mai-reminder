@@ -46,22 +46,29 @@ export function fromUTCString(utcString: string): Date {
 /**
  * Format a Date for local display
  * @param date Date object (will be interpreted as UTC epoch time)
+ * @param timeFormat Optional time format overriding locale ('12h' or '24h')
  * @returns Formatted string in local timezone
  * @throws Error if date is invalid
  */
-export function toDisplayString(date: Date): string {
+export function toDisplayString(date: Date, timeFormat?: '12h' | '24h'): string {
   if (!isValidDate(date)) {
     throw new Error('Invalid date: toDisplayString received non-Date or invalid Date')
   }
 
-  return date.toLocaleString(undefined, {
+  const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     timeZoneName: 'short',
-  })
+  }
+
+  if (timeFormat) {
+    options.hour12 = timeFormat === '12h'
+  }
+
+  return date.toLocaleString(undefined, options)
 }
 
 /**

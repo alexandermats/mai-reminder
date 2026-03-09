@@ -97,6 +97,9 @@
   "settings": {
     "title": "Settings",
     "language": "Language",
+    "timeFormat": "Time Format",
+    "format12h": "12-hour",
+    "format24h": "24-hour",
     "parserMode": "Use AI Parsing",
     "aiParsingDescription": "AI parsing provides better natural language understanding",
     "localParsingDescription": "Uses local date/time extraction (completely offline).",

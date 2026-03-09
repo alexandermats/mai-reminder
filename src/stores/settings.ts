@@ -29,6 +29,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const cloudSyncEnabled = ref(false)
   const cloudSyncUserId = ref('')
   const cloudSyncEncryptionKeyBase64 = ref('')
+  const timeFormat = ref<'12h' | '24h'>('24h')
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -62,6 +63,7 @@ export const useSettingsStore = defineStore('settings', () => {
         savedCloudSyncEnabled,
         savedCloudSyncUserId,
         savedCloudSyncEncryptionKey,
+        savedTimeFormat,
       ] = await Promise.all([
         settingsAdapter.getSetting('parserMode'),
         settingsAdapter.getSetting('fastSave'),
@@ -74,6 +76,7 @@ export const useSettingsStore = defineStore('settings', () => {
         settingsAdapter.getSetting('cloudSyncEnabled'),
         settingsAdapter.getSetting('cloudSyncUserId'),
         settingsAdapter.getSetting('cloudSyncEncryptionKeyBase64'),
+        settingsAdapter.getSetting('timeFormat'),
       ])
 
       if (savedMode) {
@@ -114,6 +117,14 @@ export const useSettingsStore = defineStore('settings', () => {
       }
       if (savedCloudSyncEncryptionKey) {
         cloudSyncEncryptionKeyBase64.value = savedCloudSyncEncryptionKey
+      }
+
+      if (savedTimeFormat) {
+        timeFormat.value = savedTimeFormat as '12h' | '24h'
+      } else {
+        const defaultFormat = language.value === 'en' ? '12h' : '24h'
+        timeFormat.value = defaultFormat
+        await settingsAdapter.setSetting('timeFormat', defaultFormat)
       }
     } catch (err) {
       console.error('Failed to initialize settings:', err)
@@ -266,6 +277,16 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  async function setTimeFormat(format: '12h' | '24h'): Promise<void> {
+    timeFormat.value = format
+    try {
+      await settingsAdapter.setSetting('timeFormat', format)
+    } catch (err) {
+      console.error('Failed to save timeFormat:', err)
+      error.value = 'Failed to save time format'
+    }
+  }
+
   async function resetToDefaults(): Promise<void> {
     isLoading.value = true
     error.value = null
@@ -286,6 +307,7 @@ export const useSettingsStore = defineStore('settings', () => {
       cloudSyncEnabled.value = false
       cloudSyncUserId.value = ''
       cloudSyncEncryptionKeyBase64.value = ''
+      timeFormat.value = language.value === 'en' ? '12h' : '24h'
 
       // Attempt reading to ensure clean state
       await initialize()
@@ -318,6 +340,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cloudSyncEnabled,
     cloudSyncUserId,
     cloudSyncEncryptionKeyBase64,
+    timeFormat,
     isLoading,
     error,
 
@@ -341,6 +364,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setCloudSyncEnabled,
     setCloudSyncUserId,
     setCloudSyncEncryptionKeyBase64,
+    setTimeFormat,
     resetToDefaults,
   }
 })

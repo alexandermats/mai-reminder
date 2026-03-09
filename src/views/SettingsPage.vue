@@ -29,6 +29,14 @@
         </ion-item>
 
         <ion-item>
+          <ion-label>{{ t('settings.timeFormat') }}</ion-label>
+          <ion-select :value="settingsStore.timeFormat" @ion-change="onTimeFormatChange">
+            <ion-select-option value="12h">{{ t('settings.format12h') }}</ion-select-option>
+            <ion-select-option value="24h">{{ t('settings.format24h') }}</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
           <ion-label id="parser-mode-label">{{ t('settings.parserMode') }}</ion-label>
           <ion-toggle
             :checked="settingsStore.isAIParsingEnabled"
@@ -282,6 +290,11 @@ function onLanguageChange(event: CustomEvent) {
   settingsStore.setLanguage(newLocale)
   // Update the global i18n locale
   locale.value = newLocale
+}
+
+function onTimeFormatChange(event: CustomEvent) {
+  const newFormat = event.detail.value as '12h' | '24h'
+  settingsStore.setTimeFormat(newFormat)
 }
 
 function onParserModeChange(event: CustomEvent) {

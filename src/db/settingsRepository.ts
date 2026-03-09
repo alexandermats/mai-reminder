@@ -30,6 +30,8 @@ export interface AppSettings {
   cloudSyncUserId: string
   /** Client-side encryption key for the sync payloads (Base64) */
   cloudSyncEncryptionKeyBase64: string
+  /** 12h or 24h time format */
+  timeFormat: '12h' | '24h'
 }
 
 type SettingKey = keyof AppSettings
@@ -49,6 +51,7 @@ const DEFAULTS: AppSettings = {
   cloudSyncEnabled: 'false',
   cloudSyncUserId: '',
   cloudSyncEncryptionKeyBase64: '',
+  timeFormat: '24h',
 }
 
 // ─── SettingsRepository ───────────────────────────────────────────────────────

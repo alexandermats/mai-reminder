@@ -44,6 +44,7 @@
           class="custom-datetime"
           :cancel-text="t('reminder.cancel')"
           :done-text="t('reminder.save')"
+          :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
         ></ion-datetime>
         <ion-note
           v-if="recurrenceDescription"
@@ -152,6 +153,7 @@ import { useI18n } from 'vue-i18n'
 import type { ParseResult } from '../parser/orchestrator'
 import { formatRecurrenceRule } from '../utils/recurrence'
 import { RRule } from 'rrule'
+import { useSettingsStore } from '../stores/settings'
 
 const props = defineProps<{
   isOpen: boolean
@@ -165,6 +167,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const settingsStore = useSettingsStore()
 const editTitle = ref('')
 const editDate = ref('')
 const recurrenceDescription = ref('')

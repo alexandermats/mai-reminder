@@ -280,4 +280,61 @@ describe('Settings Store (E3-05)', () => {
       expect(mockSetSetting).toHaveBeenCalledWith('hourlyReminderEndTime', '20:45')
     })
   })
+
+  // ── Time Format Settings ───────────────────────────────────────────────────
+
+  describe('timeFormat initialization', () => {
+    it('initializes to 12h for English when no setting is stored', async () => {
+      mockGetSetting.mockResolvedValue(null)
+      localStorage.setItem('app-language', 'en')
+
+      const store = useSettingsStore()
+      await store.initialize()
+
+      expect(store.timeFormat).toBe('12h')
+      expect(mockSetSetting).toHaveBeenCalledWith('timeFormat', '12h')
+    })
+
+    it('initializes to 24h for Russian when no setting is stored', async () => {
+      mockGetSetting.mockResolvedValue(null)
+      localStorage.setItem('app-language', 'ru')
+
+      const store = useSettingsStore()
+      await store.initialize()
+
+      expect(store.timeFormat).toBe('24h')
+      expect(mockSetSetting).toHaveBeenCalledWith('timeFormat', '24h')
+    })
+
+    it('loads stored timeFormat regardless of language', async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === 'timeFormat') return '24h'
+        return null
+      })
+      localStorage.setItem('app-language', 'en')
+
+      const store = useSettingsStore()
+      await store.initialize()
+
+      expect(store.timeFormat).toBe('24h')
+    })
+  })
+
+  describe('setTimeFormat', () => {
+    it('updates timeFormat state', async () => {
+      const store = useSettingsStore()
+      await store.initialize()
+
+      await store.setTimeFormat('12h')
+      expect(store.timeFormat).toBe('12h')
+    })
+
+    it('persists timeFormat to repository', async () => {
+      const store = useSettingsStore()
+      await store.initialize()
+
+      await store.setTimeFormat('12h')
+      expect(mockSetSetting).toHaveBeenCalledWith('timeFormat', '12h')
+    })
+  })
 })

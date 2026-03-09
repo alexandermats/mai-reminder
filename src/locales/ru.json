@@ -97,6 +97,9 @@
   "settings": {
     "title": "Настройки",
     "language": "Язык",
+    "timeFormat": "Формат времени",
+    "format12h": "12-часовой",
+    "format24h": "24-часовой",
     "parserMode": "Использовать ИИ-анализ",
     "aiParsingDescription": "ИИ-анализ лучше понимает естественный язык",
     "localParsingDescription": "Локальное извлечение даты/времени.",

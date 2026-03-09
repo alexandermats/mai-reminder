@@ -9,9 +9,11 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fromUTCString } from '../utils/datetime'
+import { useSettingsStore } from '../stores/settings'
 
 const props = defineProps<{ scheduledAt: Date | string }>()
 const { locale } = useI18n()
+const settingsStore = useSettingsStore()
 
 const parsedDate = computed(() => {
   return typeof props.scheduledAt === 'string'
@@ -23,6 +25,7 @@ const timeStr = computed(() => {
   return parsedDate.value.toLocaleString(locale.value === 'ru' ? 'ru-RU' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: settingsStore.timeFormat === '12h',
   })
 })
 

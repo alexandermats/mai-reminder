@@ -86,6 +86,14 @@ describe('SettingsRepository (E2-06)', () => {
       expect(await repo.getSetting('hourlyReminderStartTime')).toBe('08:00')
       expect(await repo.getSetting('hourlyReminderEndTime')).toBe('21:00')
     })
+
+    it('stores timeFormat setting and retrieves it', async () => {
+      await repo.setSetting('timeFormat', '12h')
+      expect(await repo.getSetting('timeFormat')).toBe('12h')
+
+      await repo.setSetting('timeFormat', '24h')
+      expect(await repo.getSetting('timeFormat')).toBe('24h')
+    })
   })
 
   // ── Schema requirements ───────────────────────────────────────────────────
