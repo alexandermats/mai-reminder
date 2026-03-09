@@ -30,8 +30,9 @@ const { adapterListMock } = vi.hoisted(() => ({
   adapterListMock: vi.fn(() => Promise.resolve([] as Reminder[])),
 }))
 
-const { syncMock } = vi.hoisted(() => ({
+const { syncMock, onDataChangedMock } = vi.hoisted(() => ({
   syncMock: vi.fn(() => Promise.resolve()),
+  onDataChangedMock: vi.fn(() => () => {}),
 }))
 
 vi.mock('@capacitor/local-notifications', () => ({
@@ -64,6 +65,7 @@ vi.mock('../src/services/reminderAdapter', () => ({
 vi.mock('../src/services/syncEngine', () => ({
   syncEngine: {
     sync: syncMock,
+    onDataChanged: onDataChangedMock,
     backfillLocalToCloud: vi.fn(() =>
       Promise.resolve({ attempted: 0, pushed: 0, failed: 0, skipped: 0 })
     ),

@@ -21,6 +21,17 @@ export interface CloudBackfillResult {
 export class SyncEngine {
   private isSyncing = false
   private intervalId: ReturnType<typeof setInterval> | null = null
+  private listeners: Set<() => void> = new Set()
+
+  /**
+   * Register a callback to be invoked whenever a background sync
+   * creates, updates, or deletes a reminder locally.
+   * @returns A function to unsubscribe this listener.
+   */
+  onDataChanged(cb: () => void): () => void {
+    this.listeners.add(cb)
+    return () => this.listeners.delete(cb)
+  }
 
   // ---------------------------------------------------------------------------
   // Periodic polling
@@ -181,6 +192,8 @@ export class SyncEngine {
       await syncBackendClient.ensureAuthenticated()
       await encryptionService.init()
 
+      let changedLocally = false
+
       // 1. Fetch both sides in parallel
       const [remoteRows, localReminders] = await Promise.all([
         syncBackendClient.fetchReminders(settings.cloudSyncUserId),
@@ -203,7 +216,8 @@ export class SyncEngine {
             // Remote deletion wins unconditionally
             if (localMap.has(row.reminder_id)) {
               console.log(`[SyncEngine] Deleting remote-deleted reminder ${row.reminder_id}`)
-              await reminderAdapter.delete(row.reminder_id, true)
+              const success = await reminderAdapter.delete(row.reminder_id, true)
+              if (success) changedLocally = true
             }
             continue
           }
@@ -259,6 +273,7 @@ export class SyncEngine {
               ...remoteReminder,
               _isSync: true,
             })
+            changedLocally = true
           } else {
             // Both sides exist: compare timestamps (last-write-wins)
             const remoteTime = remoteReminder.updatedAt.getTime()
@@ -271,6 +286,7 @@ export class SyncEngine {
                 ...remoteReminder,
                 _isSync: true,
               })
+              changedLocally = true
             } else if (remoteTime < localTime) {
               // Local is strictly newer → push local to cloud
               console.log(`[SyncEngine] Pushing newer local reminder ${localReminder.id}`)
@@ -312,6 +328,10 @@ export class SyncEngine {
             )
           }
         }
+      }
+
+      if (changedLocally) {
+        this.listeners.forEach((listener) => listener())
       }
 
       console.log(`[SyncEngine] Bidirectional sync pass completed successfully`)

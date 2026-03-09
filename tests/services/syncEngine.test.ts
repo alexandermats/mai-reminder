@@ -247,6 +247,13 @@ describe('SyncEngine', () => {
       await engine.sync()
 
       expect(syncBackendClient.fetchReminders).not.toHaveBeenCalled()
+
+      // Restore mock for subsequent tests
+      ;(useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+        cloudSyncEnabled: true,
+        cloudSyncUserId: 'user-123',
+        cloudSyncEncryptionKeyBase64: 'key-abc',
+      })
     })
 
     it('does not run a new sync if one is already in progress', async () => {
@@ -262,6 +269,76 @@ describe('SyncEngine', () => {
 
       // Restore state
       engine.isSyncing = false
+    })
+
+    describe('onDataChanged events', () => {
+      it('emits onDataChanged exactly once per sync pass if a local reminder was created', async () => {
+        const remoteReminder = makeReminder({ id: 'rem-remote' })
+        ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+          makeRemoteRow(remoteReminder),
+        ])
+        ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([])
+
+        const listener = vi.fn()
+        const unsubscribe = syncEngine.onDataChanged(listener)
+
+        await syncEngine.sync()
+
+        expect(listener).toHaveBeenCalledTimes(1)
+        unsubscribe()
+      })
+
+      it('emits onDataChanged exactly once per sync pass if a local reminder was updated', async () => {
+        const localReminder = makeReminder({
+          id: 'rem-1',
+          updatedAt: new Date('2024-01-01T10:00:00Z'),
+        })
+        const remoteReminder = makeReminder({
+          id: 'rem-1',
+          title: 'Updated remotely',
+          updatedAt: new Date('2024-01-01T12:00:00Z'),
+        })
+        ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+          makeRemoteRow(remoteReminder),
+        ])
+        ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+        const listener = vi.fn()
+        syncEngine.onDataChanged(listener)
+
+        await syncEngine.sync()
+
+        expect(listener).toHaveBeenCalledTimes(1)
+      })
+
+      it('emits onDataChanged exactly once per sync pass if a local reminder was deleted', async () => {
+        const localReminder = makeReminder({ id: 'rem-deleted' })
+        ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+          makeRemoteRow(localReminder, /* isDeleted= */ true),
+        ])
+        ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+        const listener = vi.fn()
+        syncEngine.onDataChanged(listener)
+
+        await syncEngine.sync()
+
+        expect(listener).toHaveBeenCalledTimes(1)
+      })
+
+      it('does NOT emit onDataChanged if no local modifications occurred', async () => {
+        const localReminder = makeReminder({ id: 'rem-local' })
+        ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([])
+        // The local reminder will be pushed to the cloud, but the local db isn't modified
+        ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+        const listener = vi.fn()
+        syncEngine.onDataChanged(listener)
+
+        await syncEngine.sync()
+
+        expect(listener).not.toHaveBeenCalled()
+      })
     })
   })
 

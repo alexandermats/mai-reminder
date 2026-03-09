@@ -751,6 +751,11 @@ export const useReminderStore = defineStore('reminder', () => {
       }
     })
 
+    syncEngine.onDataChanged(() => {
+      console.log('[ReminderStore] Background sync data changed, re-fetching reminders...')
+      void fetchReminders()
+    })
+
     isInitialized = true
   }
 
