@@ -405,7 +405,7 @@ describe('reminder store duplicate guard', () => {
       ...recurring,
       id: 'r-5-next',
       status: ReminderStatus.PENDING,
-      scheduledAt: new Date('2026-02-24T11:00:00.000Z'),
+      scheduledAt: new Date('2030-02-24T11:00:00.000Z'),
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1006,5 +1006,38 @@ describe('reminder store duplicate guard', () => {
     expect(store.sentMissedCount).toBe(1)
     expect(store.reminders).toHaveLength(1)
     expect(store.reminders.some((item) => item.id === state.reminder.id)).toBe(true)
+  })
+
+  it('updates missed badge count when IPC badge:updated event arrives', () => {
+    const onBadgeUpdateCallbacks: Array<(count: number, missedIds: string[]) => void> = []
+    const badgeClearedMock = vi.fn()
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        electronAPI: {
+          onBadgeUpdate: (cb: (count: number, missedIds: string[]) => void) => {
+            onBadgeUpdateCallbacks.push(cb)
+          },
+          badgeCleared: badgeClearedMock,
+        },
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const store = useReminderStore()
+    store.initialize()
+
+    // Simulate badge update with 2 missed reminders
+    onBadgeUpdateCallbacks[0]?.(2, ['r-missed-1', 'r-missed-2'])
+
+    expect(store.sentMissedCount).toBe(2)
+    expect(store.missedReminderIds.has('r-missed-1')).toBe(true)
+    expect(store.missedReminderIds.has('r-missed-2')).toBe(true)
+    expect(badgeClearedMock).not.toHaveBeenCalled()
+
+    // If already on Sent tab, it should immediately clear the badge
+    store.filterStatus = ReminderStatus.SENT
+    onBadgeUpdateCallbacks[0]?.(3, ['r-missed-1', 'r-missed-2', 'r-missed-3'])
+    expect(badgeClearedMock).toHaveBeenCalledTimes(1)
   })
 })

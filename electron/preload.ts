@@ -127,6 +127,13 @@ const electronAPI = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ipcRenderer.on('badge:navigate-sent', (_: any, missedIds?: string[]) => callback(missedIds))
   },
+  /** Subscribe to live badge count updates from the main process. */
+  onBadgeUpdate: (callback: (count: number, missedIds: string[]) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ipcRenderer.on('badge:updated', (_: any, count: number, missedIds: string[]) =>
+      callback(count, missedIds)
+    )
+  },
   /** Trigger a manual badge refresh from the renderer (e.g. after startup reconciliation). */
   badgeRefresh: () => ipcRenderer.send('badge:refresh'),
 }

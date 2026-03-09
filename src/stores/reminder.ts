@@ -720,6 +720,18 @@ export const useReminderStore = defineStore('reminder', () => {
         window.electronAPI?.badgeCleared()
       })
     }
+    if (typeof window !== 'undefined' && window.electronAPI?.onBadgeUpdate) {
+      window.electronAPI.onBadgeUpdate((count, missedIds) => {
+        console.log('[ReminderStore] onBadgeUpdate received update:', { count, missedIds })
+        if (filterStatus.value === ReminderStatus.SENT) {
+          if (typeof window !== 'undefined' && window.electronAPI) {
+            window.electronAPI.badgeCleared()
+          }
+        } else {
+          missedReminderIds.value = new Set(missedIds)
+        }
+      })
+    }
 
     // E15-02: Clear badge any time the user manually switches to the Sent tab
     watch(filterStatus, (status) => {

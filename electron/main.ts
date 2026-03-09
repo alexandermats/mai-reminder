@@ -1214,6 +1214,14 @@ async function refreshBadgeCount(
   }
 
   await badgeService.refresh(repo, sinceDate, effectiveTimeout)
+
+  if (mainWindow && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send(
+      'badge:updated',
+      badgeService.getMissedCount(),
+      badgeService.getMissedIds()
+    )
+  }
 }
 
 /** Helper: sending navigation event safely even if window is newly created / loading */
