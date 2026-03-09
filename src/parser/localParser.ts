@@ -55,9 +55,10 @@ export class ChronoLocalParser implements Parser {
     // Parse with forwardDate=true so relative expressions prefer the future
     let results = chronoParser.parse(textForChrono, refDate, { forwardDate: true })
 
-    // For recurrence phrases, parsing the text without the recurrence segment
-    // helps chrono extract explicit time fragments like "at 7am".
-    if (results.length === 0 && recurrence?.matchedText) {
+    // If there is a recurrence phrase, parsing the text without the recurrence segment
+    // prevents chrono from interpreting "every 2 days" as "in 2 days" (which shifts the start date).
+    // It also helps chrono extract explicit time fragments like "at 7am".
+    if (recurrence?.matchedText) {
       const withoutRecurrence = input.text
         .replace(recurrence.matchedText, ' ')
         .replace(/\s+/g, ' ')
@@ -67,7 +68,12 @@ export class ChronoLocalParser implements Parser {
           withoutRecurrence,
           input.language
         )
-        results = chronoParser.parse(normalizedWithoutRecurrence, refDate, { forwardDate: true })
+        const withoutResults = chronoParser.parse(normalizedWithoutRecurrence, refDate, {
+          forwardDate: true,
+        })
+        if (withoutResults.length > 0) {
+          results = withoutResults
+        }
       }
     }
 

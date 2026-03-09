@@ -111,4 +111,13 @@ describe('Local parser recurrence NLP coverage', () => {
     const result = await parser.parse({ text, language: 'ru' })
     expect(result.recurrenceRule).toBe(expectedRule)
   })
+
+  it('EN: respects future start time for today (issue 6-3)', async () => {
+    // Reference date is 2026-02-23T10:00:00.000Z
+    const text = 'Take pill every 2 days at 9pm'
+    const result = await parser.parse({ text, language: 'en' })
+    // The date should be on the 23rd, not shifted by 2 days to the 25th
+    expect(result.scheduledAt?.getDate()).toBe(23)
+    expect(result.scheduledAt?.getHours()).toBe(21)
+  })
 })
