@@ -213,6 +213,18 @@ describe('ChronoLocalParser (E2-03)', () => {
 
       expect(result.recurrenceRule).toBe('FREQ=HOURLY;INTERVAL=2')
     })
+
+    it('removes lead-in + time and recurrence from "Ходить на прогулку каждый день в 11 вечера" title', async () => {
+      const input: ParseInput = {
+        text: 'Ходить на прогулку каждый день в 11 вечера',
+        language: 'ru',
+      }
+      const result = await parser.parse(input)
+
+      expect(result.title).toBe('Ходить на прогулку')
+      expect(result.scheduledAt.getHours()).toBe(23)
+      expect(result.scheduledAt.getMinutes()).toBe(0)
+    })
   })
 
   // ── Russian time-parsing bugs (E12-03) ──────────────────────────────────────

@@ -146,7 +146,7 @@ function extractTitle(
     .replace(matchedDateText || '', '')
     // Remove common reminder lead-in phrases
     .replace(
-      /^\s*(remind me|напомнить мне|напомни мне|напомни|reminder|set a reminder|reminder:)\s*/i,
+      /^\s*(remind me|напомнить мне|напомнить|напомни мне|напомни|reminder|set a reminder|reminder:)\s*/i,
       ''
     )
     .replace(/\s+/g, ' ')
