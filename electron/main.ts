@@ -498,12 +498,14 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
       'cloudSyncEnabled',
       'cloudSyncUserId',
       'cloudSyncEncryptionKeyBase64',
+      'timeFormat',
     ] as const
 
     const VALID_PARSER_MODES = ['llm', 'local'] as const
     const VALID_FAST_SAVE_VALUES = ['true', 'false'] as const
     const VALID_OPEN_AT_LOGIN_VALUES = ['true', 'false'] as const
     const VALID_CLOUD_SYNC_ENABLED_VALUES = ['true', 'false'] as const
+    const VALID_TIME_FORMAT_VALUES = ['12h', '24h'] as const
 
     ipcMain.handle('settings:get', async (_: unknown, key: unknown) => {
       if (
@@ -526,6 +528,12 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
         !VALID_PARSER_MODES.includes(value as (typeof VALID_PARSER_MODES)[number])
       ) {
         throw new Error(`Invalid parserMode value: ${String(value)}`)
+      }
+      if (
+        key === 'timeFormat' &&
+        !VALID_TIME_FORMAT_VALUES.includes(value as (typeof VALID_TIME_FORMAT_VALUES)[number])
+      ) {
+        throw new Error(`Invalid timeFormat value: ${String(value)}`)
       }
       if (
         key === 'fastSave' &&
