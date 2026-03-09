@@ -343,7 +343,10 @@ async function onDelete(reminder: Reminder) {
       },
       onEntireSeries: async () => {
         await showDeleteConfirm(async () => {
-          await reminderRepository.update(reminder.id, { status: ReminderStatus.CANCELLED })
+          await reminderRepository.update(reminder.id, {
+            status: ReminderStatus.CANCELLED,
+            updatedAt: new Date(),
+          })
           store.updateReminder(reminder.id, { status: ReminderStatus.CANCELLED })
         })
       },
@@ -352,7 +355,10 @@ async function onDelete(reminder: Reminder) {
   }
 
   await showDeleteConfirm(async () => {
-    await reminderRepository.update(reminder.id, { status: ReminderStatus.CANCELLED })
+    await reminderRepository.update(reminder.id, {
+      status: ReminderStatus.CANCELLED,
+      updatedAt: new Date(),
+    })
     store.updateReminder(reminder.id, { status: ReminderStatus.CANCELLED })
   })
 }
@@ -409,11 +415,13 @@ async function applySingleOccurrenceEdit(reminder: Reminder, result: ParseResult
     const seriesUpdated = await reminderRepository.update(reminder.id, {
       scheduledAt: nextScheduledAt,
       status: ReminderStatus.PENDING,
+      updatedAt: new Date(),
     })
     store.updateReminder(seriesUpdated.id, seriesUpdated)
   } else {
     const seriesCompleted = await reminderRepository.update(reminder.id, {
       status: ReminderStatus.SENT,
+      updatedAt: new Date(),
     })
     store.updateReminder(seriesCompleted.id, seriesCompleted)
   }
@@ -438,11 +446,13 @@ async function skipCurrentOccurrence(reminder: Reminder) {
     const updated = await reminderRepository.update(reminder.id, {
       scheduledAt: nextScheduledAt,
       status: ReminderStatus.PENDING,
+      updatedAt: new Date(),
     })
     store.updateReminder(updated.id, updated)
   } else {
     const updated = await reminderRepository.update(reminder.id, {
       status: ReminderStatus.SENT,
+      updatedAt: new Date(),
     })
     store.updateReminder(updated.id, updated)
   }

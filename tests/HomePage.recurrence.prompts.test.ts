@@ -197,6 +197,7 @@ describe('HomePage recurring prompts (E10-04)', () => {
     expect(updateArgs[1]).toMatchObject({
       status: 'pending',
       scheduledAt: new Date('2030-01-07T10:00:00.000Z'),
+      updatedAt: expect.any(Date),
     })
 
     const createArgs = vi.mocked(reminderAdapter.create).mock.calls[0][0] as {
@@ -235,6 +236,7 @@ describe('HomePage recurring prompts (E10-04)', () => {
       expect.objectContaining({
         status: 'pending',
         scheduledAt: new Date('2030-01-07T10:00:00.000Z'),
+        updatedAt: expect.any(Date),
       })
     )
   })
@@ -267,6 +269,7 @@ describe('HomePage recurring prompts (E10-04)', () => {
       expect.objectContaining({
         status: 'pending',
         scheduledAt: new Date('2030-01-01T11:00:00.000Z'),
+        updatedAt: expect.any(Date),
       })
     )
   })
@@ -295,6 +298,7 @@ describe('HomePage recurring prompts (E10-04)', () => {
       expect.objectContaining({
         title: 'Edited once',
         recurrenceRule: expect.stringContaining(`BYHOUR=${editedAt.getHours()}`),
+        updatedAt: expect.any(Date),
       })
     )
     expect(reminderAdapter.update).toHaveBeenCalledWith(
@@ -329,6 +333,7 @@ describe('HomePage recurring prompts (E10-04)', () => {
       'rec-1',
       expect.objectContaining({
         status: 'cancelled',
+        updatedAt: expect.any(Date),
       })
     )
   })

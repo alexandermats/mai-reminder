@@ -89,6 +89,11 @@ CREATE TABLE device_pairing (
 -- SELECT cron.schedule('delete_expired_pins', '* * * * *', $$
 --    DELETE FROM device_pairing WHERE expires_at < NOW();
 -- $$);
+
+-- Add a pg_cron job to clear tombstoned reminders older than 2 days
+SELECT cron.schedule('delete_tombstoned_reminders', '0 0 * * *', $$
+    DELETE FROM cloud_reminders WHERE is_deleted = true AND updated_at < NOW() - INTERVAL '2 days';
+$$);
 ```
 
 ## 3. Configure Local Environment Variables
