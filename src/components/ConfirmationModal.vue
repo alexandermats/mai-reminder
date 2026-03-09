@@ -45,6 +45,7 @@
           :cancel-text="t('reminder.cancel')"
           :done-text="t('reminder.save')"
           :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
+          :locale="locale"
         ></ion-datetime>
         <ion-note
           v-if="recurrenceDescription"
@@ -166,7 +167,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
 const editTitle = ref('')
 const editDate = ref('')

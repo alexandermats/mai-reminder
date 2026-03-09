@@ -96,8 +96,8 @@ describe('ConfirmationModal.vue', () => {
       props: ['value'],
     },
     'ion-datetime': {
-      template: '<div class="datetime-stub">{{ modelValue }}</div>',
-      props: ['modelValue'],
+      template: '<div class="datetime-stub" :data-locale="locale">{{ modelValue }}</div>',
+      props: ['modelValue', 'locale'],
     },
     'ion-note': { template: '<div><slot /></div>' },
     'ion-icon': { template: '<span></span>' },
@@ -384,5 +384,31 @@ describe('ConfirmationModal.vue', () => {
     expect(emitted).toBeTruthy()
     const payload = emitted![0][0] as { recurrenceRule?: string }
     expect(payload.recurrenceRule).toBeUndefined()
+  })
+
+  it('passes the current locale to ion-datetime', async () => {
+    const wrapper = mount(ConfirmationModal, {
+      props: {
+        isOpen: true,
+        isEditing: false,
+        result: defaultResult,
+      },
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    const datetime = wrapper.find('.datetime-stub')
+    expect(datetime.attributes('data-locale')).toBe('en')
+
+    // Change locale
+    ;(i18n.global.locale.value as string) = 'ru'
+    await wrapper.vm.$nextTick()
+
+    expect(datetime.attributes('data-locale')).toBe('ru')
+
+    // Reset locale for other tests
+    ;(i18n.global.locale.value as string) = 'en'
   })
 })
