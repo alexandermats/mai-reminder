@@ -4,6 +4,18 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - android
+          - windows
+          - macos-14
 
 permissions:
   contents: write
@@ -12,6 +24,12 @@ jobs:
   build:
     # We use a matrix strategy to run two servers simultaneously: one Mac, one Windows
     runs-on: ${{ matrix.os }}
+    if: |
+      github.event_name == 'push' || 
+      github.event.inputs.platform == 'all' || 
+      (github.event.inputs.platform == 'android' && matrix.os == 'ubuntu-latest') || 
+      (github.event.inputs.platform == 'windows' && matrix.os == 'windows-latest') || 
+      (github.event.inputs.platform == 'macos-14' && matrix.os == 'macos-14')
     strategy:
       matrix:
         # macos-14 guarantees an Apple Silicon (M1/M2/M3) runner for your arm64 bindings
