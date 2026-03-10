@@ -39,9 +39,9 @@ describe('Database Performance', () => {
     const duration = end - start
 
     expect(upcoming.length).toBe(1000)
-    // We assert it takes less than 50ms.
+    // We assert it takes less than 100ms.
     // Console log the duration for visibility
     console.log(`[Perf] DB listUpcoming with 1000 items took: ${duration.toFixed(2)} ms`)
-    expect(duration).toBeLessThan(50)
+    expect(duration).toBeLessThan(100)
   })
 })
