@@ -229,7 +229,7 @@
         <ion-item lines="none">
           <ion-label>
             <h3>{{ t('settings.version') }}</h3>
-            <p>0.3.7</p>
+            <p>0.3.8</p>
           </ion-label>
         </ion-item>
         <ion-item lines="none">
