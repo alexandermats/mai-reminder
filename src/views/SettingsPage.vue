@@ -216,15 +216,11 @@
         <ion-item v-if="isCapacitorNative()">
           <ion-label id="priority-dnd-bypass-label">
             <h3>{{ t('settings.priorityDndBypass') }}</h3>
-            <p id="priority-dnd-bypass-description">
-              {{ t('settings.priorityDndBypassDescription') }}
-            </p>
           </ion-label>
           <ion-toggle
             :checked="settingsStore.priorityDndBypass"
             data-test="priority-dnd-bypass-toggle"
             aria-labelledby="priority-dnd-bypass-label"
-            aria-describedby="priority-dnd-bypass-description"
             @ion-change="onPriorityDndBypassChange"
           />
         </ion-item>
