@@ -32,6 +32,8 @@ export interface AppSettings {
   cloudSyncEncryptionKeyBase64: string
   /** 12h or 24h time format */
   timeFormat: '12h' | '24h'
+  /** Whether priority notifications attempt to bypass Android Do Not Disturb */
+  priorityDndBypass: 'true' | 'false'
 }
 
 type SettingKey = keyof AppSettings
@@ -52,6 +54,7 @@ const DEFAULTS: AppSettings = {
   cloudSyncUserId: '',
   cloudSyncEncryptionKeyBase64: '',
   timeFormat: '24h',
+  priorityDndBypass: 'false',
 }
 
 // ─── SettingsRepository ───────────────────────────────────────────────────────

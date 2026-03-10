@@ -130,7 +130,8 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
     }
 
     // Ensure notification channel exists (Android only but safe to call)
-    const isPriority = reminder.priority === true
+    const settingsStore = useSettingsStore()
+    const isPriority = reminder.priority === true && settingsStore.priorityDndBypass === true
     if (isPriority) {
       await this.createPriorityChannel()
     } else {
@@ -140,7 +141,6 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
     const hasExactAlarm = await this.hasExactAlarmSupport()
 
     try {
-      const settingsStore = useSettingsStore()
       const scheduledAt = resolveNotificationWindowedAt(
         reminder,
         settingsStore.hourlyReminderStartTime,

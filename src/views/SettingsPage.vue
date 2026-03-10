@@ -213,6 +213,22 @@
           />
         </ion-item>
 
+        <ion-item v-if="isCapacitorNative()">
+          <ion-label id="priority-dnd-bypass-label">
+            <h3>{{ t('settings.priorityDndBypass') }}</h3>
+            <p id="priority-dnd-bypass-description">
+              {{ t('settings.priorityDndBypassDescription') }}
+            </p>
+          </ion-label>
+          <ion-toggle
+            :checked="settingsStore.priorityDndBypass"
+            data-test="priority-dnd-bypass-toggle"
+            aria-labelledby="priority-dnd-bypass-label"
+            aria-describedby="priority-dnd-bypass-description"
+            @ion-change="onPriorityDndBypassChange"
+          />
+        </ion-item>
+
         <ion-item lines="none" class="clear-data-item">
           <ion-button
             fill="outline"
@@ -268,7 +284,7 @@ import {
 } from '@ionic/vue'
 import { useSettingsStore } from '../stores/settings'
 import { useReminderStore } from '../stores/reminder'
-import { isElectron } from '../utils/platform'
+import { isElectron, isCapacitorNative } from '../utils/platform'
 import type { SupportedLocale } from '../plugins/i18n'
 import { syncBackendClient } from '../services/syncBackendClient'
 import { encryptionService } from '../services/encryptionService'
@@ -367,6 +383,23 @@ async function onNotificationDisplayTimeBlur(event: CustomEvent) {
   const parsed = parseInt(String(raw), 10)
   if (!isNaN(parsed) && parsed !== settingsStore.notificationDisplayTimeSeconds) {
     await settingsStore.setNotificationDisplayTimeSeconds(parsed)
+  }
+}
+
+async function onPriorityDndBypassChange(event: CustomEvent) {
+  const isEnabled = event.detail.checked as boolean
+  await settingsStore.setPriorityDndBypass(isEnabled)
+  announcement.value = isEnabled
+    ? t('settings.priorityDndBypassEnabled')
+    : t('settings.priorityDndBypassDisabled')
+
+  if (isEnabled) {
+    const alert = await alertController.create({
+      header: t('settings.priorityDndBypass'),
+      message: t('settings.priorityDndBypassInstructions'),
+      buttons: ['OK'],
+    })
+    await alert.present()
   }
 }
 
