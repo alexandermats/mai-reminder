@@ -30,7 +30,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const cloudSyncUserId = ref('')
   const cloudSyncEncryptionKeyBase64 = ref('')
   const timeFormat = ref<'12h' | '24h'>('24h')
-  const priorityDndBypass = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -65,7 +64,6 @@ export const useSettingsStore = defineStore('settings', () => {
         savedCloudSyncUserId,
         savedCloudSyncEncryptionKey,
         savedTimeFormat,
-        savedPriorityDndBypass,
       ] = await Promise.all([
         settingsAdapter.getSetting('parserMode'),
         settingsAdapter.getSetting('fastSave'),
@@ -79,7 +77,6 @@ export const useSettingsStore = defineStore('settings', () => {
         settingsAdapter.getSetting('cloudSyncUserId'),
         settingsAdapter.getSetting('cloudSyncEncryptionKeyBase64'),
         settingsAdapter.getSetting('timeFormat'),
-        settingsAdapter.getSetting('priorityDndBypass'),
       ])
 
       if (savedMode) {
@@ -128,10 +125,6 @@ export const useSettingsStore = defineStore('settings', () => {
         const defaultFormat = language.value === 'en' ? '12h' : '24h'
         timeFormat.value = defaultFormat
         await settingsAdapter.setSetting('timeFormat', defaultFormat)
-      }
-
-      if (savedPriorityDndBypass) {
-        priorityDndBypass.value = savedPriorityDndBypass === 'true'
       }
     } catch (err) {
       console.error('Failed to initialize settings:', err)
@@ -294,16 +287,6 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  async function setPriorityDndBypass(enabled: boolean): Promise<void> {
-    priorityDndBypass.value = enabled
-    try {
-      await settingsAdapter.setSetting('priorityDndBypass', enabled ? 'true' : 'false')
-    } catch (err) {
-      console.error('Failed to save priorityDndBypass:', err)
-      error.value = 'Failed to save priority DnD bypass setting'
-    }
-  }
-
   async function resetToDefaults(): Promise<void> {
     isLoading.value = true
     error.value = null
@@ -325,7 +308,6 @@ export const useSettingsStore = defineStore('settings', () => {
       cloudSyncUserId.value = ''
       cloudSyncEncryptionKeyBase64.value = ''
       timeFormat.value = language.value === 'en' ? '12h' : '24h'
-      priorityDndBypass.value = false
 
       // Attempt reading to ensure clean state
       await initialize()
@@ -359,7 +341,6 @@ export const useSettingsStore = defineStore('settings', () => {
     cloudSyncUserId,
     cloudSyncEncryptionKeyBase64,
     timeFormat,
-    priorityDndBypass,
     isLoading,
     error,
 
@@ -384,7 +365,6 @@ export const useSettingsStore = defineStore('settings', () => {
     setCloudSyncUserId,
     setCloudSyncEncryptionKeyBase64,
     setTimeFormat,
-    setPriorityDndBypass,
     resetToDefaults,
   }
 })

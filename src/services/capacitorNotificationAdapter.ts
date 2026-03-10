@@ -131,7 +131,7 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
 
     // Ensure notification channel exists (Android only but safe to call)
     const settingsStore = useSettingsStore()
-    const isPriority = reminder.priority === true && settingsStore.priorityDndBypass === true
+    const isPriority = reminder.priority === true
     if (isPriority) {
       await this.createPriorityChannel()
     } else {

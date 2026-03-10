@@ -56,7 +56,6 @@ describe('CapacitorNotificationAdapter (E9-05)', () => {
     vi.mocked(useSettingsStore).mockReturnValue({
       hourlyReminderStartTime: '09:00',
       hourlyReminderEndTime: '22:00',
-      priorityDndBypass: false,
     } as unknown as ReturnType<typeof useSettingsStore>)
     adapter = new CapacitorNotificationAdapter()
   })
@@ -213,40 +212,13 @@ describe('CapacitorNotificationAdapter (E9-05)', () => {
       priority: true,
     }
 
-    beforeEach(() => {
-      // Enable priorityDndBypass for these tests
-      vi.mocked(useSettingsStore).mockReturnValue({
-        hourlyReminderStartTime: '09:00',
-        hourlyReminderEndTime: '22:00',
-        priorityDndBypass: true,
-      } as unknown as ReturnType<typeof useSettingsStore>)
-    })
-
-    it('schedules a priority reminder using the priority-reminders channel when setting is on', async () => {
+    it('schedules a priority reminder using the priority-reminders channel', async () => {
       await adapter.schedule(mockPriorityReminder)
 
       expect(LocalNotifications.schedule).toHaveBeenCalledWith({
         notifications: [
           expect.objectContaining({
             channelId: 'priority-reminders',
-          }),
-        ],
-      })
-    })
-
-    it('schedules a priority reminder using the default channel when priorityDndBypass is off', async () => {
-      vi.mocked(useSettingsStore).mockReturnValue({
-        hourlyReminderStartTime: '09:00',
-        hourlyReminderEndTime: '22:00',
-        priorityDndBypass: false,
-      } as unknown as ReturnType<typeof useSettingsStore>)
-
-      await adapter.schedule(mockPriorityReminder)
-
-      expect(LocalNotifications.schedule).toHaveBeenCalledWith({
-        notifications: [
-          expect.objectContaining({
-            channelId: 'reminders',
           }),
         ],
       })

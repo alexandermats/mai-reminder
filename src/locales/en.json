@@ -161,11 +161,7 @@
     "resetToDefaults": "Reset to Defaults",
     "resetConfirmTitle": "Reset All Settings",
     "resetConfirmMessage": "Are you sure you want to reset all settings to their defaults? This will also unpair this device from Cloud Sync.",
-    "resetSuccessToast": "All settings have been reset.",
-    "priorityDndBypass": "Priority notifications override Do Not Disturb",
-    "priorityDndBypassEnabled": "Priority DnD bypass enabled",
-    "priorityDndBypassDisabled": "Priority DnD bypass disabled",
-    "priorityDndBypassInstructions": "To allow priority reminders to bypass Do Not Disturb, go to:\n→ Settings → Notifications → Do Not Disturb → App notifications\nand add Mai Reminder to the allowed list."
+    "resetSuccessToast": "All settings have been reset."
   },
   "errors": {
     "offline": "You're offline. Using local parser.",

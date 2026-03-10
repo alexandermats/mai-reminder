@@ -510,7 +510,6 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
       'cloudSyncUserId',
       'cloudSyncEncryptionKeyBase64',
       'timeFormat',
-      'priorityDndBypass',
     ] as const
 
     const VALID_PARSER_MODES = ['llm', 'local'] as const
