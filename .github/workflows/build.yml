@@ -16,6 +16,11 @@ on:
           - android
           - windows
           - macos-14
+      release:
+        description: 'Create release'
+        required: true
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: write
@@ -68,15 +73,19 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Get Version
+        id: package_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Build Mac App (Apple Silicon)
         if: matrix.os == 'macos-14'
-        run: npm run dist -- --mac --arm64 --publish always
+        run: npm run dist -- --mac --arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Windows App (x64)
         if: matrix.os == 'windows-latest'
-        run: npm run dist -- --win --x64 --publish always
+        run: npm run dist -- --win --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -88,6 +97,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Mai-Reminder-${{ steps.package_version.outputs.version }}.apk
 
       - name: Upload Mac DMG Artifact
         if: matrix.os == 'macos-14'
@@ -110,5 +120,34 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Mai-Reminder-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/Mai-Reminder-${{ steps.package_version.outputs.version }}.apk
           retention-days: 7
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/Mai-Reminder-Mac-ARM64/*.dmg
+            artifacts/Mai-Reminder-Windows-x64/*.exe
+            artifacts/Mai-Reminder-Android-APK/*.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
