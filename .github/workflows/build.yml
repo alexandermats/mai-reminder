@@ -130,6 +130,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Get Version
+        id: package_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -141,6 +148,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.package_version.outputs.version }}
           files: |
             artifacts/Mai-Reminder-Mac-ARM64/*.dmg
             artifacts/Mai-Reminder-Windows-x64/*.exe
