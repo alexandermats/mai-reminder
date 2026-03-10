@@ -5,7 +5,7 @@ The role of this file is to describe common mistakes and confusion points that a
 ## Local Issue Tracking
 
 - Use a repo-local Markdown tracker:
-  - [Sprint6.md](Sprint6.md) = current sprint only. Mark ticket as completed after it has been implemented and tested.
+  - [Sprint7.md](Sprint7.md) = current sprint only. Mark ticket as completed after it has been implemented and tested.
   - [WORKLOG.md](WORKLOG.md) = issues saved for later. Add anything that was deferred from the current sprint there.
 
 ## Use up-to-date docs

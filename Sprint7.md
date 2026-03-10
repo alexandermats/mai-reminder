@@ -1,0 +1,8 @@
+## Sprint 7
+
+7-1. [ ] **Add "Priority" flag UX**: Add a clickable "Priority" flag (icon) in the top-right corner of the reminder UI components to allow users to toggle the priority status of a reminder.
+7-2. [ ] **Handle missed "Priority" notifications on startup**: On the Desktop app, check for any missed "Priority" reminders that occurred while the app was closed. If any exist, send a notification immediately upon app start.
+7-3. [ ] **Bypass Do Not Disturb (DnD)**: Extend notification handlers to attempt bypassing DnD settings for "Priority" reminders on both Desktop and Mobile if supported by the platform's notification APIs.
+7-4. [ ] **Add "days of week" selector for hourly reminders**: In the Save/Edit modal, add a "days of week" selector specifically for "every N hours" reminders. This should appear as a list of day names to the right of the time picker. All days must be selected by default, and users can click to select/deselect them.
+7-5. [ ] **Realign Save/Edit modal layout**: Reorganize the recurrence schedule portion of the Save/Edit modal horizontally. The new flow should be: "Every" [text] -> [number selector] -> [dropdown for hours/days/weeks/day_of_week].
+7-6. [ ] **UI Design Improvement**: Leverage Gemini 3.1 Pro and Antigravity's browser control mode to review the current UI and iteratively improve the design. Aim for a modern, beautiful aesthetic with enhanced layout and interactions.
