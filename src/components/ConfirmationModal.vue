@@ -372,6 +372,7 @@ function onCancel() {
 
 .datetime-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: flex-start;
 }
@@ -380,7 +381,7 @@ function onCancel() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 200px;
 }
 
 .days-label {
@@ -407,10 +408,9 @@ function onCancel() {
 }
 
 .custom-datetime {
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--ion-color-light-tint);
   --background: var(--ion-color-light-tint);
-  max-width: 55%;
 }
 
 .recurrence-description {

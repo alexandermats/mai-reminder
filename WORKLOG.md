@@ -33,3 +33,26 @@ Input Validation in Orchestrator: Add stricter validation in src/parser/orchestr
 Type Safety Across IPC Boundaries: Standardize the interfaces used for Inter-Process Communication (IPC) between electron/main.ts and the frontend to ensure that data types remain consistent and easy to refactor.
 
 7. enable invisible CAPTCHA or Cloudflare Turnstile to prevent abuse for anonymous sign-ins.
+
+8. **Android: True Per-Notification DnD Bypass via `CATEGORY_ALARM`**
+
+   **Context**: `@capacitor/local-notifications` does not expose `NotificationCompat.Builder.setCategory()`, so there is no way to mark a notification as `CATEGORY_ALARM` through the standard JS API. Android treats alarm-category notifications as a special class that bypasses DnD by default (users have "Allow alarms" on in DnD settings), without requiring the app to be on the whole-app allow-list.
+
+   **What would need to be built**:
+   1. **A custom Capacitor Android plugin** (`android/app/src/main/java/.../PriorityNotificationPlugin.kt`):
+      - Implement a `schedulePriorityNotification(call: PluginCall)` method.
+      - Use `NotificationCompat.Builder` with `.setCategory(NotificationCompat.CATEGORY_ALARM)`.
+      - Set channel importance to `NotificationManager.IMPORTANCE_HIGH` on a dedicated `alarm-reminders` channel.
+      - Handle exact alarm scheduling via `AlarmManager.setExact()` / `setExactAndAllowWhileIdle()`.
+      - Register with `@CapacitorPlugin(name = "PriorityNotification")` and add to `MainActivity.java`.
+
+   2. **A TypeScript bridge** (`src/services/priorityNotificationPlugin.ts`):
+      - Wrap the native plugin with a typed interface: `schedulePriorityNotification(options)`, `cancelPriorityNotification(id)`.
+      - Fall back to standard `@capacitor/local-notifications` on non-Android platforms.
+
+   3. **Update `CapacitorNotificationAdapter`**:
+      - Call the custom plugin for `reminder.priority === true`, standard plugin otherwise.
+
+   4. **Permissions**: Add `USE_EXACT_ALARM` (Android 13+) or `SCHEDULE_EXACT_ALARM` (Android 12) to `AndroidManifest.xml`. Prompt the user to grant it if needed (same pattern as the existing exact alarm prompt).
+
+   **Key trade-off**: This bypasses DnD only for priority reminders (good), but alarm-category notifications cannot be silenced by the user through the DnD "exceptions" screen — they always ring. Communicate this clearly in settings UI copy.
