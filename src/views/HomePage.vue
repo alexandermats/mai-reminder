@@ -256,6 +256,20 @@ async function onSave(result: ParseResult) {
           recurrenceRule: finalRule,
           updatedAt: new Date(),
         }
+
+        const targetReminder = store.reminders.find((r) => r.id === editingReminderId.value)
+        if (
+          targetReminder &&
+          [ReminderStatus.SENT, ReminderStatus.CANCELLED, ReminderStatus.DISMISSED].includes(
+            targetReminder.status
+          )
+        ) {
+          if (result.scheduledAt.getTime() <= Date.now()) {
+            throw new Error('errors.timeMustBeInFuture')
+          }
+          changes.status = ReminderStatus.PENDING
+        }
+
         const updated = await reminderRepository.update(editingReminderId.value, changes)
         store.updateReminder(updated.id, updated)
       }

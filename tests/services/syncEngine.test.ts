@@ -221,6 +221,34 @@ describe('SyncEngine', () => {
       expect(reminderAdapter.delete).toHaveBeenCalledWith('rem-deleted', true)
     })
 
+    it('does NOT delete local reminder if local is newer than remote tombstone (reactivation case)', async () => {
+      const localReminder = makeReminder({
+        id: 'rem-reactivated',
+        status: ReminderStatus.PENDING,
+        updatedAt: new Date('2024-01-01T14:00:00Z'), // NEWER
+      })
+      const staleRemoteReminder = makeReminder({
+        id: 'rem-reactivated',
+        status: ReminderStatus.CANCELLED,
+        updatedAt: new Date('2024-01-01T10:00:00Z'), // OLDER
+      })
+
+      ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeRemoteRow(staleRemoteReminder, /* isDeleted= */ true),
+      ])
+      ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+      await syncEngine.sync()
+
+      // Should NOT delete locally
+      expect(reminderAdapter.delete).not.toHaveBeenCalled()
+      // Should PUSH local state to cloud to clear the tombstone
+      expect(syncBackendClient.pushReminder).toHaveBeenCalledWith(
+        'user-123',
+        expect.objectContaining({ reminderId: 'rem-reactivated', isDeleted: false })
+      )
+    })
+
     it('does not call delete when remote-deleted ID is not present locally', async () => {
       ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
         makeRemoteRow(makeReminder({ id: 'rem-not-local' }), true),

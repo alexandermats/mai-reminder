@@ -168,6 +168,7 @@
     "parseFailure": "Couldn't understand that. Try rephrasing with a specific time.",
     "apiKeyRequired": "AI parsing requires a Cerebras API key. Please provide it in settings.",
     "exactAlarmDisabled": "Exact alarms are disabled for this app on Android. Reminders may arrive late. Enable 'Alarms & reminders' in app settings.",
+    "timeMustBeInFuture": "Reminder time should be in the future",
     "general": "Something went wrong. Retry or contact support."
   },
   "snooze": {

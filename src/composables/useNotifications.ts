@@ -31,6 +31,8 @@ export function useNotifications() {
       addNotification('rate-limit', 'errors.rateLimit')
     } else if (isParseFailureError(error)) {
       addNotification('parse-failure', 'errors.parseFailure')
+    } else if (error instanceof Error && error.message.startsWith('errors.')) {
+      addNotification('general', error.message)
     } else {
       addNotification('general', 'errors.general')
     }

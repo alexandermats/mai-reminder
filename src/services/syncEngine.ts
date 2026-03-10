@@ -213,11 +213,34 @@ export class SyncEngine {
         seenRemoteIds.add(row.reminder_id)
         try {
           if (row.is_deleted) {
-            // Remote deletion wins unconditionally
-            if (localMap.has(row.reminder_id)) {
-              console.log(`[SyncEngine] Deleting remote-deleted reminder ${row.reminder_id}`)
-              const success = await reminderAdapter.delete(row.reminder_id, true)
-              if (success) changedLocally = true
+            const localReminder = localMap.get(row.reminder_id)
+            if (localReminder) {
+              const remoteTime = new Date(row.updated_at).getTime()
+              const localTime = localReminder.updatedAt.getTime()
+
+              if (remoteTime >= localTime) {
+                // Remote deletion is newer (or same version) → delete locally
+                console.log(`[SyncEngine] Deleting remote-deleted reminder ${row.reminder_id}`)
+                const success = await reminderAdapter.delete(row.reminder_id, true)
+                if (success) changedLocally = true
+              } else if (localTime > remoteTime) {
+                // Local is newer (e.g. reactivated) → push local to cloud to override tombstone
+                console.log(
+                  `[SyncEngine] Local reminder ${row.reminder_id} is newer than remote deletion. Pushing reactivation.`
+                )
+                try {
+                  await this.pushReminderWithRetry(
+                    settings.cloudSyncUserId,
+                    localReminder,
+                    settings.cloudSyncEncryptionKeyBase64
+                  )
+                } catch (pushErr) {
+                  console.warn(
+                    `[SyncEngine] Failed to push reactivated reminder ${row.reminder_id}:`,
+                    pushErr
+                  )
+                }
+              }
             }
             continue
           }
