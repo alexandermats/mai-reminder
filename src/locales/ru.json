@@ -87,7 +87,9 @@
       "sent": "Отправлены",
       "cancelled": "Отменены",
       "filterByStatus": "Фильтр по статусу"
-    }
+    },
+    "addPriority": "Добавить приоритет",
+    "removePriority": "Убрать приоритет"
   },
   "language": {
     "en": "Английский",

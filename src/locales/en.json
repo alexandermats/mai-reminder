@@ -87,7 +87,9 @@
       "sent": "Sent",
       "cancelled": "Cancelled",
       "filterByStatus": "Filter by status"
-    }
+    },
+    "addPriority": "Add priority",
+    "removePriority": "Remove priority"
   },
   "language": {
     "en": "English",
