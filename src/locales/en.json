@@ -82,6 +82,15 @@
       "sa": "Saturday",
       "su": "Sunday"
     },
+    "weekdaysShort": {
+      "mo": "Mo",
+      "tu": "Tu",
+      "we": "We",
+      "th": "Th",
+      "fr": "Fr",
+      "sa": "Sa",
+      "su": "Su"
+    },
     "status": {
       "pending": "Active",
       "sent": "Sent",

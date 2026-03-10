@@ -64,7 +64,7 @@
                 :aria-pressed="hourlyRecurrenceDays.includes(day)"
                 @click="toggleHourlyDay(day)"
               >
-                {{ t(`reminder.weekdays.${day.toLowerCase()}`).substring(0, 2) }}
+                {{ t(`reminder.weekdaysShort.${day.toLowerCase()}`) }}
               </ion-button>
             </div>
           </div>
@@ -410,6 +410,7 @@ function onCancel() {
   border-radius: 8px;
   background: var(--ion-color-light-tint);
   --background: var(--ion-color-light-tint);
+  max-width: 55%;
 }
 
 .recurrence-description {
