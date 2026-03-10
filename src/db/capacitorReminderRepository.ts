@@ -76,10 +76,27 @@ export class CapacitorReminderRepository implements IReminderRepository {
         recurrence_rule TEXT,
         status TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 0
       );
     `
     await this.db.execute(query)
+
+    // Migration: add priority column to existing databases that were created before
+    // ticket 7-1 (priority flag). SQLite does not support IF NOT EXISTS on ALTER TABLE,
+    // so we attempt the operation and swallow the "duplicate column" error.
+    try {
+      await this.db.execute(`ALTER TABLE reminders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (
+        !msg.toLowerCase().includes('duplicate column') &&
+        !msg.toLowerCase().includes('already exists')
+      ) {
+        throw err
+      }
+      // Column already exists — safe to ignore
+    }
   }
 
   private ensureDate(value: Date | string): Date {
