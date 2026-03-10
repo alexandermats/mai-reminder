@@ -36,6 +36,7 @@ const REMINDER_COLUMNS = [
   'status',
   'created_at',
   'updated_at',
+  'priority',
 ].join(', ')
 
 /**
@@ -86,8 +87,8 @@ export class ElectronReminderRepository implements IReminderRepository {
       const insert = this.db.prepare(`
         INSERT INTO reminders (
           id, title, original_text, language, scheduled_at,
-          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at, priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       insert.run(
@@ -102,7 +103,8 @@ export class ElectronReminderRepository implements IReminderRepository {
         input.recurrenceRule ?? null,
         input.status || 'pending',
         createdAtISO,
-        updatedAtISO
+        updatedAtISO,
+        input.priority ? 1 : 0
       )
 
       // Fetch the created reminder to return complete object
@@ -206,6 +208,25 @@ export class ElectronReminderRepository implements IReminderRepository {
   }
 
   /**
+   * List missed priority reminders that were scheduled in the past and are still pending.
+   */
+  async listMissedPriorityReminders(now: Date | string = new Date()): Promise<Reminder[]> {
+    try {
+      const nowDate = now instanceof Date ? now : new Date(now)
+      const nowString = toUTCString(nowDate)
+      const rows = this.db
+        .prepare(
+          `SELECT ${REMINDER_COLUMNS} FROM reminders WHERE scheduled_at <= ? AND status = 'pending' AND priority = 1 ORDER BY scheduled_at ASC`
+        )
+        .all(nowString) as DatabaseReminderRow[]
+
+      return rows.map(rowToReminder)
+    } catch (err) {
+      throw new RepositoryError('Failed to list missed priority reminders', err)
+    }
+  }
+
+  /**
    * Update a reminder with partial changes
    * @param id Reminder UUID to update
    * @param changes Partial reminder data to update
@@ -274,6 +295,11 @@ export class ElectronReminderRepository implements IReminderRepository {
       if (changes.status !== undefined) {
         updates.push('status = ?')
         values.push(changes.status)
+      }
+
+      if (changes.priority !== undefined) {
+        updates.push('priority = ?')
+        values.push(changes.priority ? 1 : 0)
       }
 
       // Always update updated_at timestamp
@@ -445,6 +471,7 @@ interface DatabaseReminderRow {
   status: string
   created_at: string
   updated_at: string
+  priority: number
 }
 
 /**
@@ -466,6 +493,7 @@ function rowToReminder(row: DatabaseReminderRow): Reminder {
       status: (row.status as ReminderStatus) || ReminderStatus.PENDING,
       createdAt: fromUTCString(row.created_at),
       updatedAt: fromUTCString(row.updated_at),
+      priority: row.priority === 1,
     }
   } catch (err) {
     throw new RepositoryError(

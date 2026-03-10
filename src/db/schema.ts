@@ -3,10 +3,6 @@
  * Matches the Reminder type from src/types/reminder.ts
  */
 
-/**
- * SQL to create the reminders table
- * Stores all reminder data with timezone-safe ISO-8601 datetime strings
- */
 export const createRemindersTableSQL = `
 CREATE TABLE IF NOT EXISTS reminders (
   id TEXT PRIMARY KEY,
@@ -88,6 +84,13 @@ export const migrations: Migration[] = [
     name: 'Add recurrence rule column to reminders table',
     up: `
       ALTER TABLE reminders ADD COLUMN recurrence_rule TEXT;
+    `,
+  },
+  {
+    version: 5,
+    name: 'Add priority column to reminders table',
+    up: `
+      ALTER TABLE reminders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
     `,
   },
 ]

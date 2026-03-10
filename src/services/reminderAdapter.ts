@@ -52,6 +52,10 @@ class IpcReminderAdapter implements IReminderRepository {
     return syncEngine.clearOldRemindersWithSync(includeSent ?? true)
   }
 
+  async listMissedPriorityReminders(now?: Date | string): Promise<Reminder[]> {
+    return this.api.listMissedPriorityReminders(now)
+  }
+
   async cleanupPastPendingReminders(now?: Date | string): Promise<number> {
     return this.api.cleanupPastPendingReminders(now)
   }
@@ -76,6 +80,13 @@ class MockReminderAdapter implements IReminderRepository {
 
   async clearOldReminders(includeSent?: boolean): Promise<number> {
     return syncEngine.clearOldRemindersWithSync(includeSent ?? true)
+  }
+
+  async listMissedPriorityReminders(now?: Date | string): Promise<Reminder[]> {
+    const threshold = now ? new Date(now) : new Date()
+    return this.reminders.filter(
+      (r) => r.status === ReminderStatus.PENDING && r.scheduledAt <= threshold && r.priority
+    )
   }
 
   async cleanupPastPendingReminders(now?: Date | string): Promise<number> {

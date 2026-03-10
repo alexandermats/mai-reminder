@@ -207,10 +207,10 @@ describe('Database Schema', () => {
 
     it('sets and retrieves database version', () => {
       runMigrations(db) // Ensure migrations table exists
-      setDatabaseVersion(db, 5)
+      setDatabaseVersion(db, 99)
 
       const version = getDatabaseVersion(db)
-      expect(version).toBe(5)
+      expect(version).toBe(99)
     })
 
     it('gets highest version when multiple exist', () => {

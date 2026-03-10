@@ -22,6 +22,7 @@ export interface ElectronAPI {
     delete(id: string, isSync?: boolean): Promise<boolean>
     clearOldReminders(includeSent?: boolean): Promise<number>
     cleanupPastPendingReminders(now?: Date | string): Promise<number>
+    listMissedPriorityReminders(now?: Date | string): Promise<Reminder[]>
   }
   settings: {
     getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K] | null>

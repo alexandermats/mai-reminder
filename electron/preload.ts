@@ -46,6 +46,8 @@ const electronAPI = {
     // Dates are serialized as ISO strings over IPC - the repository handles conversion
     cleanupPastPendingReminders: (now?: Date | string) =>
       ipcRenderer.invoke('reminders:cleanup-past-pending', now),
+    listMissedPriorityReminders: (now?: Date | string) =>
+      ipcRenderer.invoke('reminders:list-missed-priority', now),
   },
   settings: {
     getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),

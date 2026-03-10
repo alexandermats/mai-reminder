@@ -100,8 +100,8 @@ export class CapacitorReminderRepository implements IReminderRepository {
       const query = `
         INSERT INTO reminders (
           id, title, original_text, language, scheduled_at,
-          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at, priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
 
       const params = [
@@ -117,6 +117,7 @@ export class CapacitorReminderRepository implements IReminderRepository {
         input.status || 'pending',
         createdAtISO,
         updatedAtISO,
+        input.priority ? 1 : 0,
       ]
 
       await db.run(query, params)
@@ -179,6 +180,22 @@ export class CapacitorReminderRepository implements IReminderRepository {
     }
   }
 
+  async listMissedPriorityReminders(now: Date | string = new Date()): Promise<Reminder[]> {
+    const db = await this.ensureConnection()
+    try {
+      const nowDate = now instanceof Date ? now : new Date(now)
+      const nowString = toUTCString(nowDate)
+
+      const query = `SELECT * FROM reminders WHERE scheduled_at <= ? AND status = 'pending' AND priority = 1 ORDER BY scheduled_at ASC`
+      const res = await db.query(query, [nowString])
+
+      if (!res.values) return []
+      return res.values.map(rowToReminder)
+    } catch (err) {
+      throw new CapacitorRepositoryError('Failed to list missed priority reminders', err)
+    }
+  }
+
   async update(id: string, changes: Partial<ReminderInput>): Promise<Reminder> {
     const db = await this.ensureConnection()
     try {
@@ -231,6 +248,10 @@ export class CapacitorReminderRepository implements IReminderRepository {
       if (changes.status !== undefined) {
         updates.push('status = ?')
         values.push(changes.status)
+      }
+      if (changes.priority !== undefined) {
+        updates.push('priority = ?')
+        values.push(changes.priority ? 1 : 0)
       }
 
       updates.push('updated_at = ?')
@@ -320,6 +341,7 @@ function rowToReminder(row: any): Reminder {
     status: (row.status as ReminderStatus) || ReminderStatus.PENDING,
     createdAt: fromUTCString(row.created_at),
     updatedAt: fromUTCString(row.updated_at),
+    priority: row.priority === 1,
   }
 }
 

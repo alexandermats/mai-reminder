@@ -28,8 +28,9 @@ export interface IReminderRepository {
   list(options?: ListOptions): Promise<Reminder[]>
 
   /**
-   * List upcoming reminders
+   * List missed priority reminders that were scheduled in the past and are still pending.
    */
+  listMissedPriorityReminders(now?: Date | string): Promise<Reminder[]>
   listUpcoming(fromDate?: Date | string): Promise<Reminder[]>
 
   /**

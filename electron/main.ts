@@ -473,6 +473,17 @@ function registerIpcHandlers(repo: Record<string, (...args: unknown[]) => unknow
         throw error
       }
     })
+    ipcMain.handle('reminders:list-missed-priority', async (_: unknown, now?: Date | string) => {
+      try {
+        const listMissedFn = repo.listMissedPriorityReminders as (
+          now?: Date | string
+        ) => Promise<CoreReminder[]>
+        return await listMissedFn.call(repo, now)
+      } catch (error) {
+        console.error('[IPC] reminders:list-missed-priority failed:', error)
+        throw error
+      }
+    })
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {
@@ -981,6 +992,7 @@ app.whenReady().then(async () => {
     (...args: unknown[]) => unknown
   > & {
     listUpcoming: () => Promise<unknown>
+    listMissedPriorityReminders: () => Promise<unknown>
   }
 
   repo
@@ -992,6 +1004,20 @@ app.whenReady().then(async () => {
     })
     .catch((err: unknown) => {
       console.error('[Scheduler] Failed to hydrate pending reminders:', err)
+    })
+
+  // Hydrate missed priority reminders on startup
+  repo
+    .listMissedPriorityReminders()
+    .then((missedPriority: unknown) => {
+      const reminders = missedPriority as CoreReminder[]
+      if (reminders.length > 0) {
+        console.log(`[Scheduler] Hydrating ${reminders.length} missed priority reminders...`)
+        reminders.forEach((r: CoreReminder) => scheduler!.schedule(r))
+      }
+    })
+    .catch((err: unknown) => {
+      console.error('[Scheduler] Failed to hydrate missed priority reminders:', err)
     })
 
   scheduler.start()
