@@ -52,6 +52,11 @@ export class ElectronNotificationAdapter implements INotificationAdapter {
         silent: false,
         timeoutType: 'never',
         actions: ACTION_LABELS.map((a) => ({ type: 'button' as const, text: a.label })),
+        // On Linux, urgency:critical requests DnD bypass for priority reminders.
+        // Other platforms silently ignore this option.
+        ...(reminder.priority === true && process.platform === 'linux'
+          ? { urgency: 'critical' as const }
+          : {}),
       })
 
       this.activeNotifications.set(notification, reminder.id)

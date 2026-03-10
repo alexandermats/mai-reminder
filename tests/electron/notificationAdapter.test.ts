@@ -11,6 +11,7 @@ type MockNotificationOptions = {
   title?: string
   body?: string
   actions?: { type: string; text: string }[]
+  urgency?: 'low' | 'normal' | 'critical'
 }
 
 vi.mock('electron', () => {
@@ -20,6 +21,7 @@ vi.mock('electron', () => {
 
       constructor(options: MockNotificationOptions) {
         this.options = options
+        lastConstructorOptions = options
       }
 
       show() {
@@ -39,10 +41,14 @@ vi.mock('electron', () => {
   }
 })
 
+/** Holds options from the most recently constructed MockNotification (set by mock above) */
+let lastConstructorOptions: MockNotificationOptions | null = null
+
 describe('ElectronNotificationAdapter', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockOnHandlers.clear()
+    lastConstructorOptions = null
     // Default: macOS
     vi.stubGlobal('process', { ...process, platform: 'darwin' })
   })
@@ -54,6 +60,13 @@ describe('ElectronNotificationAdapter', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     recurrenceRule: undefined,
+    priority: false,
+  } as unknown as Reminder
+
+  const mockPriorityReminder = {
+    ...mockReminder,
+    id: '456',
+    priority: true,
   } as unknown as Reminder
 
   it('creates and shows a notification with the correct payload', () => {
@@ -124,6 +137,37 @@ describe('ElectronNotificationAdapter', () => {
       actionHandlers[0](new Event('action'), 3)
 
       expect(onAction).toHaveBeenCalledWith(mockReminder.id, 'dismiss')
+    })
+  })
+
+  describe('DnD bypass for priority reminders (7-3)', () => {
+    it('sets urgency:critical on Linux for a priority reminder', () => {
+      vi.stubGlobal('process', { ...process, platform: 'linux' })
+
+      const adapter = new ElectronNotificationAdapter()
+      adapter.showNotification(mockPriorityReminder)
+
+      expect(lastConstructorOptions).not.toBeNull()
+      expect(lastConstructorOptions?.urgency).toBe('critical')
+    })
+
+    it('does not set urgency on macOS for a priority reminder', () => {
+      // beforeEach already sets platform to darwin
+      const adapter = new ElectronNotificationAdapter()
+      adapter.showNotification(mockPriorityReminder)
+
+      expect(lastConstructorOptions).not.toBeNull()
+      expect(lastConstructorOptions?.urgency).toBeUndefined()
+    })
+
+    it('does not set urgency on Linux for a non-priority reminder', () => {
+      vi.stubGlobal('process', { ...process, platform: 'linux' })
+
+      const adapter = new ElectronNotificationAdapter()
+      adapter.showNotification(mockReminder)
+
+      expect(lastConstructorOptions).not.toBeNull()
+      expect(lastConstructorOptions?.urgency).toBeUndefined()
     })
   })
 

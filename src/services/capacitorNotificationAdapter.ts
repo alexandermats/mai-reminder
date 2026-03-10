@@ -30,6 +30,30 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
     }
   }
 
+  /**
+   * Create a high-priority notification channel used for priority reminders.
+   * On Android, users can grant this channel permission to bypass Do Not Disturb
+   * in system Settings → Apps → Notifications → [channel].
+   * On iOS and other platforms, channel creation is a no-op.
+   */
+  private async createPriorityChannel(): Promise<void> {
+    try {
+      await LocalNotifications.createChannel({
+        id: 'priority-reminders',
+        name: 'Priority Reminders',
+        description: 'High-priority notifications that may bypass Do Not Disturb',
+        importance: 5, // max importance
+        visibility: 1, // public
+        vibration: true,
+      })
+    } catch (error) {
+      console.error(
+        '[CapacitorNotificationAdapter] Failed to create priority notification channel:',
+        error
+      )
+    }
+  }
+
   private async hasExactAlarmSupport(): Promise<boolean> {
     try {
       const setting = await LocalNotifications.checkExactNotificationSetting()
@@ -106,7 +130,13 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
     }
 
     // Ensure notification channel exists (Android only but safe to call)
-    await this.createChannel()
+    const isPriority = reminder.priority === true
+    if (isPriority) {
+      await this.createPriorityChannel()
+    } else {
+      await this.createChannel()
+    }
+    const channelId = isPriority ? 'priority-reminders' : 'reminders'
     const hasExactAlarm = await this.hasExactAlarmSupport()
 
     try {
@@ -132,7 +162,7 @@ export class CapacitorNotificationAdapter implements INotificationAdapter {
             body: reminder.title,
             schedule: { at: scheduledAt, allowWhileIdle: hasExactAlarm },
             sound: 'default',
-            channelId: 'reminders',
+            channelId,
             actionTypeId: SNOOZE_ACTION_TYPE_ID,
             extra: {
               reminderId: reminder.id,

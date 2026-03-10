@@ -204,4 +204,62 @@ describe('CapacitorNotificationAdapter (E9-05)', () => {
       expect(LocalNotifications.registerActionTypes).not.toHaveBeenCalled()
     })
   })
+
+  describe('DnD bypass for priority reminders (7-3)', () => {
+    const mockPriorityReminder: Reminder = {
+      ...mockReminder,
+      id: 'priority-abc-123',
+      priority: true,
+    }
+
+    it('schedules a priority reminder using the priority-reminders channel', async () => {
+      await adapter.schedule(mockPriorityReminder)
+
+      expect(LocalNotifications.schedule).toHaveBeenCalledWith({
+        notifications: [
+          expect.objectContaining({
+            channelId: 'priority-reminders',
+          }),
+        ],
+      })
+    })
+
+    it('schedules a non-priority reminder using the default reminders channel', async () => {
+      await adapter.schedule(mockReminder)
+
+      expect(LocalNotifications.schedule).toHaveBeenCalledWith({
+        notifications: [
+          expect.objectContaining({
+            channelId: 'reminders',
+          }),
+        ],
+      })
+    })
+
+    it('creates the priority-reminders channel when scheduling a priority reminder', async () => {
+      vi.mocked(LocalNotifications.createChannel).mockClear()
+
+      await adapter.schedule(mockPriorityReminder)
+
+      expect(LocalNotifications.createChannel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'priority-reminders',
+          importance: 5,
+        })
+      )
+    })
+
+    it('does not create the priority-reminders channel for non-priority reminders', async () => {
+      vi.mocked(LocalNotifications.createChannel).mockClear()
+
+      await adapter.schedule(mockReminder)
+
+      const calls = vi.mocked(LocalNotifications.createChannel).mock.calls
+      const priorityChannelCall = calls.find((args) => {
+        const arg = args[0] as { id?: string }
+        return arg.id === 'priority-reminders'
+      })
+      expect(priorityChannelCall).toBeUndefined()
+    })
+  })
 })
