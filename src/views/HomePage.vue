@@ -109,10 +109,7 @@ import { useSettingsStore } from '../stores/settings'
 import { reminderAdapter as reminderRepository } from '../services/reminderAdapter'
 import { isCapacitorNative } from '../utils/platform'
 import type { ParseResult } from '../parser/orchestrator'
-import {
-  applyHourlyRecurrenceWindow,
-  normalizeHourlyRecurrenceRule,
-} from '../utils/hourlyRecurrence'
+import { applyHourlyRecurrenceWindow } from '../utils/hourlyRecurrence'
 import { alignRecurrenceRuleTime, getNextScheduledAt } from '../services/schedulerService'
 import type { Reminder } from '../types/reminder'
 import {
@@ -235,25 +232,27 @@ async function onSave(result: ParseResult) {
       } else {
         // Update existing (series edit or one-time reminder edit)
         let finalRule = result.recurrenceRule
+        let finalScheduledAt = result.scheduledAt
         // If it's a series edit, ensure the anchor time matches the updated scheduledAt time
         if (recurringEditScope.value === 'series' && finalRule) {
-          finalRule = alignRecurrenceRuleTime(finalRule, result.scheduledAt)
+          finalRule = alignRecurrenceRuleTime(finalRule, finalScheduledAt)
         }
 
         // Always normalize hourly recurrences with settings window bounds
         if (finalRule) {
-          finalRule =
-            normalizeHourlyRecurrenceRule(
-              finalRule,
-              result.scheduledAt,
-              settingsStore.hourlyReminderStartTime,
-              settingsStore.hourlyReminderEndTime
-            ) ?? finalRule
+          const normalized = applyHourlyRecurrenceWindow(
+            { ...result, scheduledAt: finalScheduledAt, recurrenceRule: finalRule },
+            new Date(),
+            settingsStore.hourlyReminderStartTime,
+            settingsStore.hourlyReminderEndTime
+          )
+          finalRule = normalized.recurrenceRule ?? finalRule
+          finalScheduledAt = normalized.scheduledAt
         }
 
         const changes: Partial<Reminder> = {
           title: result.title,
-          scheduledAt: result.scheduledAt,
+          scheduledAt: finalScheduledAt,
           recurrenceRule: finalRule,
           updatedAt: new Date(),
         }
@@ -265,7 +264,7 @@ async function onSave(result: ParseResult) {
             targetReminder.status
           )
         ) {
-          if (result.scheduledAt.getTime() <= Date.now()) {
+          if (finalScheduledAt.getTime() <= Date.now()) {
             throw new Error('errors.timeMustBeInFuture')
           }
           changes.status = ReminderStatus.PENDING
