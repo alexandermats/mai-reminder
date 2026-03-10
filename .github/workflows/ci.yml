@@ -11,6 +11,9 @@ jobs:
     # Use macos-latest if your tests rely on Mac-specific audio/system features,
     # otherwise ubuntu-latest is fine as long as we rebuild the modules.
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout code
