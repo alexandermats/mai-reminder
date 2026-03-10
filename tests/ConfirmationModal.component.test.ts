@@ -302,7 +302,72 @@ describe('ConfirmationModal.vue', () => {
     const emitted = wrapper.emitted('save')
     expect(emitted).toBeTruthy()
     const payload = emitted![0][0] as { recurrenceRule?: string }
+    // When all days are active (default), BYDAY is omitted
     expect(payload.recurrenceRule).toBe('FREQ=HOURLY;INTERVAL=2')
+  })
+
+  it('initializes correctly when parsed result has HOURLY interval with specific days', () => {
+    const hourlyWithDaysResult = {
+      ...defaultResult,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYDAY=MO,WE,FR',
+    }
+
+    const wrapper = mount(ConfirmationModal, {
+      props: {
+        isOpen: true,
+        isEditing: false,
+        result: hourlyWithDaysResult,
+      },
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    const select = wrapper.find('[data-test="recurrence-type-select"]')
+    expect((select.element as HTMLSelectElement).value).toBe('hours')
+
+    const intervalInput = wrapper.find('[data-test="recurrence-interval-input"]')
+    expect((intervalInput.element as HTMLInputElement).value).toBe('2')
+
+    // Expect the selected days to be Mo, We, Fr
+    const dayBtns = wrapper.findAll('[data-test="hourly-day-btn"]')
+    const activeDays = dayBtns
+      .filter((btn) => btn.attributes('color') === 'primary')
+      .map((btn) => btn.text())
+    expect(activeDays).toEqual(['Mo', 'We', 'Fr'])
+  })
+
+  it('emits save event with correct RRULE including BYDAY when choosing Every N hours and deselecting a day', async () => {
+    const wrapper = mount(ConfirmationModal, {
+      props: {
+        isOpen: true,
+        isEditing: false,
+        result: defaultResult,
+      },
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    await wrapper.find('[data-test="recurrence-type-select"]').setValue('hours')
+    const vm = wrapper.vm as unknown as { recurrenceInterval: number | undefined }
+    vm.recurrenceInterval = 1
+    await wrapper.vm.$nextTick()
+
+    // Deselect MO
+    const dayBtns = wrapper.findAll('[data-test="hourly-day-btn"]')
+    const moBtn = dayBtns.find((btn) => btn.text() === 'Mo')
+    await moBtn?.trigger('click')
+
+    const saveButton = wrapper.findAll('button').find((b) => b.text() === 'Save')
+    await saveButton?.trigger('click')
+
+    const emitted = wrapper.emitted('save')
+    expect(emitted).toBeTruthy()
+    const payload = emitted![0][0] as { recurrenceRule?: string }
+    expect(payload.recurrenceRule).toBe('FREQ=HOURLY;INTERVAL=1;BYDAY=TU,WE,TH,FR,SA,SU')
   })
 
   it('emits save event with correct RRULE when choosing Every N weeks', async () => {

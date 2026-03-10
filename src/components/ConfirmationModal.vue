@@ -35,18 +35,41 @@
         ></ion-input>
       </ion-item>
 
-      <div class="datetime-container">
+      <div class="datetime-wrapper">
         <ion-label class="datetime-label">{{ t('reminder.time') }}</ion-label>
-        <ion-datetime
-          v-model="editDate"
-          presentation="date-time"
-          :prefer-wheel="true"
-          class="custom-datetime"
-          :cancel-text="t('reminder.cancel')"
-          :done-text="t('reminder.save')"
-          :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
-          :locale="locale"
-        ></ion-datetime>
+        <div class="datetime-row">
+          <ion-datetime
+            v-model="editDate"
+            presentation="date-time"
+            :prefer-wheel="true"
+            class="custom-datetime"
+            :cancel-text="t('reminder.cancel')"
+            :done-text="t('reminder.save')"
+            :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
+            :locale="locale"
+          ></ion-datetime>
+
+          <div v-if="recurrenceType === 'hours'" class="hourly-days-section">
+            <ion-label id="hourly-days-label" class="days-label">{{
+              t('reminder.recurrenceDay', 'Days:')
+            }}</ion-label>
+            <div class="days-grid" role="group" aria-labelledby="hourly-days-label">
+              <ion-button
+                v-for="day in dayMap"
+                :key="day"
+                :color="hourlyRecurrenceDays.includes(day) ? 'primary' : 'medium'"
+                :fill="hourlyRecurrenceDays.includes(day) ? 'solid' : 'outline'"
+                class="day-btn"
+                data-test="hourly-day-btn"
+                :aria-pressed="hourlyRecurrenceDays.includes(day)"
+                @click="toggleHourlyDay(day)"
+              >
+                {{ t(`reminder.weekdays.${day.toLowerCase()}`).substring(0, 2) }}
+              </ion-button>
+            </div>
+          </div>
+        </div>
+
         <ion-note
           v-if="recurrenceDescription"
           class="recurrence-description"
@@ -180,6 +203,19 @@ const recurrenceDay = ref('MO')
 const safeInterval = computed(() => Math.max(1, parseInt(String(recurrenceInterval.value)) || 1))
 
 const dayMap = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
+const hourlyRecurrenceDays = ref<string[]>([...dayMap])
+
+function toggleHourlyDay(day: string) {
+  const index = hourlyRecurrenceDays.value.indexOf(day)
+  if (index === -1) {
+    hourlyRecurrenceDays.value.push(day)
+  } else {
+    // Prevent deselecting all days
+    if (hourlyRecurrenceDays.value.length > 1) {
+      hourlyRecurrenceDays.value.splice(index, 1)
+    }
+  }
+}
 
 // Synchronize state with props when modal opens or result changes
 watch(
@@ -201,6 +237,15 @@ watch(
           if (rule.options.freq === RRule.HOURLY) {
             recurrenceType.value = 'hours'
             recurrenceInterval.value = rule.options.interval || 1
+            if (rule.options.byweekday && rule.options.byweekday.length > 0) {
+              hourlyRecurrenceDays.value = rule.options.byweekday.map((d: unknown) => {
+                const weekdayObj = d as { weekday: number } | number
+                const numVal = typeof weekdayObj === 'number' ? weekdayObj : weekdayObj.weekday
+                return dayMap[numVal] || 'MO'
+              })
+            } else {
+              hourlyRecurrenceDays.value = [...dayMap]
+            }
           } else if (rule.options.freq === RRule.DAILY) {
             recurrenceType.value = 'days'
             recurrenceInterval.value = rule.options.interval || 1
@@ -226,6 +271,7 @@ watch(
         recurrenceType.value = 'none'
         recurrenceInterval.value = 1
         recurrenceDay.value = 'MO'
+        hourlyRecurrenceDays.value = [...dayMap]
       }
     }
   },
@@ -277,6 +323,11 @@ function buildRRule(): string | undefined {
     if (recurrenceType.value === 'hours') {
       options.freq = RRule.HOURLY
       options.interval = intervalNum
+      if (hourlyRecurrenceDays.value.length > 0 && hourlyRecurrenceDays.value.length < 7) {
+        options.byweekday = hourlyRecurrenceDays.value
+          .map((day) => dayMap.indexOf(day))
+          .filter((idx) => idx !== -1) as number[]
+      }
     } else if (recurrenceType.value === 'days') {
       options.freq = RRule.DAILY
       options.interval = intervalNum
@@ -312,11 +363,42 @@ function onCancel() {
 </script>
 
 <style scoped>
-.datetime-container {
+.datetime-wrapper {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px 16px;
+}
+
+.datetime-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.hourly-days-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.days-label {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+}
+
+.days-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.day-btn {
+  margin: 0;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  min-width: 40px;
 }
 
 .datetime-label {
