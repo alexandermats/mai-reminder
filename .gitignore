@@ -16,6 +16,9 @@ release/
 coverage/
 *.png
 !build/icon.png
+!android/**/*.png
+!android/**/*.webp
+!build/*.png
 vite.config.ts.timestamp-*
 android/.idea/
 
