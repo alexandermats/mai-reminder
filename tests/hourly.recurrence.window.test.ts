@@ -44,6 +44,19 @@ describe('applyHourlyRecurrenceWindow', () => {
     expect(output.scheduledAt.getDate()).toBe(now.getDate())
   })
 
+  it('preserves BYDAY when normalizing hourly rule', () => {
+    const input = makeResult(
+      'FREQ=HOURLY;INTERVAL=2;BYDAY=MO,WE,FR',
+      new Date(2026, 2, 1, 10, 0, 0)
+    )
+    const now = new Date(2026, 2, 1, 10, 15, 0)
+    const output = applyHourlyRecurrenceWindow(input, now, '09:00', '22:00')
+
+    expect(output.recurrenceRule).toBe(
+      'FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0;BYDAY=MO,WE,FR'
+    )
+  })
+
   it('keeps selected future time when creating recurring reminder', () => {
     const selected = new Date(2026, 2, 1, 11, 37, 0)
     const input = makeResult('FREQ=HOURLY;INTERVAL=1', selected)
@@ -79,6 +92,18 @@ describe('normalizeHourlyRecurrenceRule', () => {
 
     expect(normalized).toBe('FREQ=HOURLY;INTERVAL=3;BYMINUTE=15;BYSECOND=0')
     expect(normalized).not.toContain('BYHOUR')
+  })
+
+  it('preserves BYDAY through normalization', () => {
+    const rule = 'FREQ=HOURLY;INTERVAL=3;BYDAY=SA,SU'
+    const normalized = normalizeHourlyRecurrenceRule(
+      rule,
+      new Date(2026, 2, 1, 11, 15, 0),
+      '09:00',
+      '22:00'
+    )
+
+    expect(normalized).toBe('FREQ=HOURLY;INTERVAL=3;BYMINUTE=15;BYSECOND=0;BYDAY=SA,SU')
   })
 })
 

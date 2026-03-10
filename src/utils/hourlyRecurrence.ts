@@ -35,6 +35,20 @@ function parseHourlyInterval(rule: string): number | null {
   return interval
 }
 
+function parseHourlyByweekday(rule: string): number[] | null {
+  const normalized = rule.replace(/^RRULE:/i, '').toUpperCase()
+  if (!normalized.includes('FREQ=HOURLY')) {
+    return null
+  }
+  const bydayMatch = normalized.match(/(?:^|;)BYDAY=([^;]+)(?:;|$)/)
+  if (!bydayMatch) return null
+
+  const days = bydayMatch[1].split(',')
+  const dayMap = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
+  const parsed = days.map((d) => dayMap.indexOf(d.trim())).filter((idx) => idx !== -1)
+  return parsed.length > 0 ? parsed : null
+}
+
 function buildAllowedHours(
   interval: number,
   startHour: number,
@@ -114,18 +128,24 @@ export function buildHourlyRecurrenceRule(
   _start: TimeParts,
   _end: TimeParts,
   _anchorHour?: number,
-  anchorMinute?: number
+  anchorMinute?: number,
+  byweekday?: number[] | null
 ): string {
   const minute =
     anchorMinute !== undefined && Number.isInteger(anchorMinute) && anchorMinute >= 0
       ? Math.min(59, Math.max(0, anchorMinute))
       : 0
-  const options = {
+  const options: Partial<import('rrule').Options> = {
     freq: RRule.HOURLY,
     interval,
     byminute: [minute],
     bysecond: [0],
   }
+
+  if (byweekday && byweekday.length > 0) {
+    options.byweekday = byweekday
+  }
+
   return new RRule(options).toString().replace(/^RRULE:/, '')
 }
 
@@ -140,13 +160,15 @@ export function normalizeHourlyRecurrenceRule(
     return undefined
   }
 
+  const byweekday = parseHourlyByweekday(rule)
+
   const start = parseTime(startTime, DEFAULT_HOURLY_WINDOW_START)
   const end = parseTime(endTime, DEFAULT_HOURLY_WINDOW_END)
   const safeEnd =
     end.hour < start.hour ? parseTime(DEFAULT_HOURLY_WINDOW_END, DEFAULT_HOURLY_WINDOW_END) : end
   const anchorHour = anchorDate.getHours()
   const anchorMinute = anchorDate.getMinutes()
-  return buildHourlyRecurrenceRule(interval, start, safeEnd, anchorHour, anchorMinute)
+  return buildHourlyRecurrenceRule(interval, start, safeEnd, anchorHour, anchorMinute, byweekday)
 }
 
 export function applyHourlyRecurrenceWindow(
@@ -164,6 +186,8 @@ export function applyHourlyRecurrenceWindow(
     return result
   }
 
+  const byweekday = parseHourlyByweekday(result.recurrenceRule)
+
   const start = parseTime(startTime, DEFAULT_HOURLY_WINDOW_START)
   const end = parseTime(endTime, DEFAULT_HOURLY_WINDOW_END)
   const safeEnd =
@@ -180,7 +204,8 @@ export function applyHourlyRecurrenceWindow(
     start,
     safeEnd,
     anchorHour,
-    anchorMinute
+    anchorMinute,
+    byweekday
   )
 
   return {
