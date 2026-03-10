@@ -16,10 +16,7 @@ jobs:
       matrix:
         # macos-14 guarantees an Apple Silicon (M1/M2/M3) runner for your arm64 bindings
         # windows-latest provides a standard Windows x64 environment
-        # ubuntu-latest for Android APK
-        # os: [macos-14, windows-latest, ubuntu-latest]
-        # os: [macos-14, windows-latest]
-        os: [windows-latest]
+        os: [macos-14, windows-latest, ubuntu-latest]
 
     steps:
       - name: Check out Git repository
@@ -39,13 +36,13 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
-      # - name: Build Mac App (Apple Silicon)
-      #   if: matrix.os == 'macos-14'
-      #   run: npm run dist -- --mac --arm64 --publish always
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Mac App (Apple Silicon)
+        if: matrix.os == 'macos-14'
+        run: npm run dist -- --mac --arm64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Windows App (x64)
         if: matrix.os == 'windows-latest'
@@ -53,22 +50,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      #- name: Build Android APK
-      #  if: matrix.os == 'ubuntu-latest'
-      #  run: |
-      #    npm run build:web
-      #    npx cap sync android
-      #    cd android
-      #    chmod +x gradlew
-      #    ./gradlew assembleDebug
+      - name: Build Android APK
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          npm run build:web
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      # - name: Upload Mac DMG Artifact
-      #   if: matrix.os == 'macos-14'
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: Mai-Reminder-Mac-ARM64
-      #     path: release/*.dmg
-      #     retention-days: 7
+      - name: Upload Mac DMG Artifact
+        if: matrix.os == 'macos-14'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mai-Reminder-Mac-ARM64
+          path: release/*.dmg
+          retention-days: 7
 
       - name: Upload Windows EXE Artifact
         if: matrix.os == 'windows-latest'
@@ -78,10 +75,10 @@ jobs:
           path: release/*.exe
           retention-days: 7
 
-      #- name: Upload Android APK Artifact
-      #  if: matrix.os == 'ubuntu-latest'
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: Mai-Reminder-Android-APK
-      #    path: android/app/build/outputs/apk/debug/app-debug.apk
-      #    retention-days: 7
+      - name: Upload Android APK Artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mai-Reminder-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

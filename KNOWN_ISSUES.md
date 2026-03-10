@@ -33,7 +33,4 @@ Recurring reminders may not work properly when synced between devices in differe
 
 ## UI
 
-- **Edit button on Sent and Cancelled screens**
-  Editing a reminder on Sent and Cancelled screens does not make the reminder active.
-
 - **Settings page still needs redesign.**
