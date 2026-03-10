@@ -61,6 +61,12 @@
     "inDays": "in {n}d",
     "repeatsCustom": "Repeats ({rule})",
     "recurrencePickerNone": "None",
+    "everyLabelHourDay": "Every",
+    "everyLabelWeek": "Every",
+    "unitHours": "hour | hours",
+    "unitDays": "day | days",
+    "unitWeeks": "week | weeks",
+    "unitDayOfWeek": "day of the week",
     "recurrencePickerEveryNHours": "Every {n} hour | Every {n} hours",
     "recurrencePickerEveryNDays": "Every {n} day | Every {n} days",
     "recurrencePickerEveryNWeeks": "Every {n} week | Every {n} weeks",
@@ -90,6 +96,24 @@
       "fr": "Fr",
       "sa": "Sa",
       "su": "Su"
+    },
+    "everyPrefix": {
+      "mo": "Every",
+      "tu": "Every",
+      "we": "Every",
+      "th": "Every",
+      "fr": "Every",
+      "sa": "Every",
+      "su": "Every"
+    },
+    "weekdaysAccusative": {
+      "mo": "Monday",
+      "tu": "Tuesday",
+      "we": "Wednesday",
+      "th": "Thursday",
+      "fr": "Friday",
+      "sa": "Saturday",
+      "su": "Sunday"
     },
     "status": {
       "pending": "Active",

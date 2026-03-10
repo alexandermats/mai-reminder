@@ -80,9 +80,57 @@
       </div>
 
       <div class="recurrence-container ion-margin-top">
-        <div class="recurrence-row">
-          <ion-item lines="full" class="recurrence-item">
-            <ion-label position="stacked">{{ t('reminder.recurrence') }}</ion-label>
+        <ion-item lines="full" class="recurrence-item">
+          <ion-label position="stacked">{{ t('reminder.recurrence') }}</ion-label>
+          <div class="recurrence-horizontal-group">
+            <span v-if="recurrenceType !== 'none'" class="every-label" aria-hidden="true">{{
+              everyLabelText
+            }}</span>
+
+            <ion-input
+              v-if="['hours', 'days', 'weeks'].includes(recurrenceType)"
+              type="number"
+              :value="recurrenceInterval"
+              data-test="recurrence-interval-input"
+              min="1"
+              class="narrow-interval-input"
+              :aria-label="t('reminder.intervalN')"
+              @ion-input="recurrenceInterval = parseInt($event.detail.value || '1', 10) || 1"
+            ></ion-input>
+
+            <ion-select
+              v-if="recurrenceType === 'dayOfWeek'"
+              v-model="recurrenceDay"
+              data-test="recurrence-day-select"
+              interface="popover"
+              :cancel-text="t('reminder.cancel')"
+              :ok-text="t('reminder.save')"
+              aria-label="Day of week"
+              class="narrow-day-select day-of-week-override-select"
+            >
+              <ion-select-option value="MO">{{
+                t('reminder.weekdaysAccusative.mo')
+              }}</ion-select-option>
+              <ion-select-option value="TU">{{
+                t('reminder.weekdaysAccusative.tu')
+              }}</ion-select-option>
+              <ion-select-option value="WE">{{
+                t('reminder.weekdaysAccusative.we')
+              }}</ion-select-option>
+              <ion-select-option value="TH">{{
+                t('reminder.weekdaysAccusative.th')
+              }}</ion-select-option>
+              <ion-select-option value="FR">{{
+                t('reminder.weekdaysAccusative.fr')
+              }}</ion-select-option>
+              <ion-select-option value="SA">{{
+                t('reminder.weekdaysAccusative.sa')
+              }}</ion-select-option>
+              <ion-select-option value="SU">{{
+                t('reminder.weekdaysAccusative.su')
+              }}</ion-select-option>
+            </ion-select>
+
             <ion-select
               v-model="recurrenceType"
               data-test="recurrence-type-select"
@@ -91,6 +139,7 @@
               :selected-text="recurrenceSelectText"
               :cancel-text="t('reminder.cancel')"
               :ok-text="t('reminder.save')"
+              :aria-label="t('reminder.recurrence')"
             >
               <ion-select-option value="none">{{
                 t('reminder.recurrencePickerNone')
@@ -99,50 +148,11 @@
               <ion-select-option value="days">{{ daysOptionText }}</ion-select-option>
               <ion-select-option value="weeks">{{ weeksOptionText }}</ion-select-option>
               <ion-select-option value="dayOfWeek">{{
-                t(`reminder.every.${recurrenceDay.toLowerCase()}`)
+                t('reminder.unitDayOfWeek')
               }}</ion-select-option>
             </ion-select>
-          </ion-item>
-
-          <ion-item
-            v-if="['hours', 'days', 'weeks'].includes(recurrenceType)"
-            lines="full"
-            class="recurrence-interval-input"
-          >
-            <ion-label position="stacked">{{ t('reminder.intervalN', 'Interval (N):') }}</ion-label>
-            <ion-input
-              type="number"
-              :value="recurrenceInterval"
-              data-test="recurrence-interval-input"
-              min="1"
-              class="narrow-interval-input"
-              @ion-input="recurrenceInterval = parseInt($event.detail.value || '1', 10) || 1"
-            ></ion-input>
-          </ion-item>
-
-          <ion-item
-            v-if="recurrenceType === 'dayOfWeek'"
-            lines="full"
-            class="recurrence-day-select"
-          >
-            <ion-label position="stacked">{{ t('reminder.recurrenceDay', 'Day:') }}</ion-label>
-            <ion-select
-              v-model="recurrenceDay"
-              data-test="recurrence-day-select"
-              interface="popover"
-              :cancel-text="t('reminder.cancel')"
-              :ok-text="t('reminder.save')"
-            >
-              <ion-select-option value="MO">{{ t('reminder.weekdays.mo') }}</ion-select-option>
-              <ion-select-option value="TU">{{ t('reminder.weekdays.tu') }}</ion-select-option>
-              <ion-select-option value="WE">{{ t('reminder.weekdays.we') }}</ion-select-option>
-              <ion-select-option value="TH">{{ t('reminder.weekdays.th') }}</ion-select-option>
-              <ion-select-option value="FR">{{ t('reminder.weekdays.fr') }}</ion-select-option>
-              <ion-select-option value="SA">{{ t('reminder.weekdays.sa') }}</ion-select-option>
-              <ion-select-option value="SU">{{ t('reminder.weekdays.su') }}</ion-select-option>
-            </ion-select>
-          </ion-item>
-        </div>
+          </div>
+        </ion-item>
       </div>
 
       <div v-if="result.confidence < 0.7" class="confidence-warning ion-margin-top">
@@ -289,29 +299,39 @@ const recurrenceSelectText = computed(() => {
     case 'weeks':
       return weeksOptionText.value
     case 'dayOfWeek':
-      return t(`reminder.every.${recurrenceDay.value.toLowerCase()}`)
+      return t('reminder.unitDayOfWeek')
     default:
       return t('reminder.recurrencePickerNone')
   }
 })
 
+const everyLabelText = computed(() => {
+  switch (recurrenceType.value) {
+    case 'hours':
+    case 'days':
+      return t('reminder.everyLabelHourDay', safeInterval.value, {
+        n: safeInterval.value,
+      } as Record<string, unknown>)
+    case 'weeks':
+      return t('reminder.everyLabelWeek', safeInterval.value, { n: safeInterval.value } as Record<
+        string,
+        unknown
+      >)
+    case 'dayOfWeek':
+      return t(`reminder.everyPrefix.${recurrenceDay.value.toLowerCase()}`)
+    default:
+      return ''
+  }
+})
+
 const hoursOptionText = computed(() =>
-  t('reminder.recurrencePickerEveryNHours', safeInterval.value, { n: safeInterval.value } as Record<
-    string,
-    unknown
-  >)
+  t('reminder.unitHours', safeInterval.value, { n: safeInterval.value } as Record<string, unknown>)
 )
 const daysOptionText = computed(() =>
-  t('reminder.recurrencePickerEveryNDays', safeInterval.value, { n: safeInterval.value } as Record<
-    string,
-    unknown
-  >)
+  t('reminder.unitDays', safeInterval.value, { n: safeInterval.value } as Record<string, unknown>)
 )
 const weeksOptionText = computed(() =>
-  t('reminder.recurrencePickerEveryNWeeks', safeInterval.value, { n: safeInterval.value } as Record<
-    string,
-    unknown
-  >)
+  t('reminder.unitWeeks', safeInterval.value, { n: safeInterval.value } as Record<string, unknown>)
 )
 
 function buildRRule(): string | undefined {
@@ -451,26 +471,32 @@ function onCancel() {
   gap: 4px;
 }
 
-.recurrence-row {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
 .recurrence-item {
-  flex: 1;
+  width: 100%;
 }
 
-.recurrence-interval-input,
-.recurrence-day-select {
-  flex: 0 0 160px;
+.recurrence-horizontal-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.every-label {
+  font-size: 1rem;
+  color: var(--ion-text-color);
+  white-space: nowrap;
 }
 
 .narrow-interval-input {
-  text-align: left;
+  max-width: 70px;
+  min-width: 50px;
+  border-bottom: 1px solid var(--ion-color-medium);
 }
 .narrow-interval-input::part(native) {
-  /* Ensure padding doesn't hide arrows */
+  text-align: center;
   padding-right: 0 !important;
 }
 .narrow-interval-input::part(native)::-webkit-inner-spin-button,
@@ -478,5 +504,17 @@ function onCancel() {
   -webkit-appearance: inner-spin-button !important;
   display: block !important;
   opacity: 1 !important;
+}
+
+.narrow-day-select {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  max-width: fit-content;
+  border-bottom: 1px solid var(--ion-color-medium);
+}
+
+.day-of-week-override-select {
+  color: var(--ion-text-color);
+  font-size: 1rem;
 }
 </style>

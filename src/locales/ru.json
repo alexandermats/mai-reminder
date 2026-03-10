@@ -61,6 +61,12 @@
     "inDays": "через {n}д",
     "repeatsCustom": "Повтор ({rule})",
     "recurrencePickerNone": "Один раз",
+    "everyLabelHourDay": "Каждый | Каждые | Каждые",
+    "everyLabelWeek": "Каждую | Каждые | Каждые",
+    "unitHours": "час | часа | часов",
+    "unitDays": "день | дня | дней",
+    "unitWeeks": "неделю | недели | недель",
+    "unitDayOfWeek": "день недели",
     "recurrencePickerEveryNHours": "Каждый {n} час | Каждые {n} часа | Каждые {n} часов",
     "recurrencePickerEveryNDays": "Каждый {n} день | Каждые {n} дня | Каждые {n} дней",
     "recurrencePickerEveryNWeeks": "Каждую {n} неделю | Каждые {n} недели | Каждые {n} недель",
@@ -90,6 +96,24 @@
       "fr": "Пт",
       "sa": "Сб",
       "su": "Вс"
+    },
+    "everyPrefix": {
+      "mo": "Каждый",
+      "tu": "Каждый",
+      "we": "Каждую",
+      "th": "Каждый",
+      "fr": "Каждую",
+      "sa": "Каждую",
+      "su": "Каждое"
+    },
+    "weekdaysAccusative": {
+      "mo": "понедельник",
+      "tu": "вторник",
+      "we": "среду",
+      "th": "четверг",
+      "fr": "пятницу",
+      "sa": "субботу",
+      "su": "воскресенье"
     },
     "status": {
       "pending": "Активны",
