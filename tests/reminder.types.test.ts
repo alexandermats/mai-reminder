@@ -51,6 +51,7 @@ describe('Reminder Types', () => {
       expect(reminder.parserMode).toBe(validInput.parserMode)
       expect(reminder.createdAt).toBeInstanceOf(Date)
       expect(reminder.updatedAt).toBeInstanceOf(Date)
+      expect(reminder.priority).toBe(false) // Default value
     })
 
     it('accepts optional parseConfidence', () => {
@@ -60,6 +61,15 @@ describe('Reminder Types', () => {
       })
 
       expect(reminder.parseConfidence).toBe(0.85)
+    })
+
+    it('accepts optional priority', () => {
+      const reminder = createReminder({
+        ...validInput,
+        priority: true,
+      })
+
+      expect(reminder.priority).toBe(true)
     })
 
     it('defaults parseConfidence to undefined when not provided', () => {
@@ -209,6 +219,7 @@ describe('Reminder Types', () => {
         parseConfidence: 0.92,
         createdAt: now,
         updatedAt: now,
+        priority: true,
       }
 
       // Verify all required fields from Requirements.md section 8
@@ -222,6 +233,7 @@ describe('Reminder Types', () => {
       expect(reminder).toHaveProperty('parseConfidence')
       expect(reminder).toHaveProperty('createdAt')
       expect(reminder).toHaveProperty('updatedAt')
+      expect(reminder).toHaveProperty('priority')
 
       // Verify types
       expect(typeof reminder.id).toBe('string')
@@ -234,6 +246,7 @@ describe('Reminder Types', () => {
       expect(typeof reminder.parseConfidence).toBe('number')
       expect(reminder.createdAt).toBeInstanceOf(Date)
       expect(reminder.updatedAt).toBeInstanceOf(Date)
+      expect(typeof reminder.priority).toBe('boolean')
     })
   })
 })

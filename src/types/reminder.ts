@@ -66,6 +66,8 @@ export interface Reminder {
   createdAt: Date
   /** When the reminder was last updated */
   updatedAt: Date
+  /** Whether this is a high-priority reminder */
+  priority?: boolean
 }
 
 /**
@@ -85,6 +87,7 @@ export interface ReminderInput {
   createdAt?: Date
   updatedAt?: Date
   _isSync?: boolean
+  priority?: boolean
 }
 
 /**
@@ -155,6 +158,7 @@ export function createReminder(input: ReminderInput): Reminder {
     recurrenceRule: input.recurrenceRule,
     createdAt: input.createdAt || nowDate,
     updatedAt: input.updatedAt || nowDate,
+    priority: input.priority || false,
   }
 }
 
@@ -250,6 +254,10 @@ export function isValidReminder(value: unknown): value is Reminder {
   }
 
   if (reminder.recurrenceRule !== undefined && typeof reminder.recurrenceRule !== 'string') {
+    return false
+  }
+
+  if (reminder.priority !== undefined && typeof reminder.priority !== 'boolean') {
     return false
   }
 

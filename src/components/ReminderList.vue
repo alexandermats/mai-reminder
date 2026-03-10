@@ -27,6 +27,23 @@
               :scheduled-at="reminder.scheduledAt"
             />
             <ReminderColumnTitle class="grid-col-title" :title="reminder.title" />
+            <button
+              class="priority-flag-btn"
+              :class="{ 'is-priority': reminder.priority }"
+              data-test="priority-flag"
+              :aria-label="
+                reminder.priority
+                  ? t('reminder.removePriority', 'Remove priority')
+                  : t('reminder.addPriority', 'Add priority')
+              "
+              :aria-pressed="reminder.priority"
+              @click.stop="emit('togglePriority', reminder)"
+            >
+              <ion-icon
+                :icon="reminder.priority ? star : starOutline"
+                aria-hidden="true"
+              ></ion-icon>
+            </button>
           </div>
           <div class="reminder-row-bottom">
             <ReminderColumnRecurrence
@@ -49,7 +66,7 @@
 
 <script setup lang="ts">
 import { IonList, IonItem, IonIcon } from '@ionic/vue'
-import { notificationsOffOutline } from 'ionicons/icons'
+import { notificationsOffOutline, star, starOutline } from 'ionicons/icons'
 import { useReminderStore } from '../stores/reminder'
 import { ReminderStatus } from '../types/reminder'
 import { computed } from 'vue'
@@ -69,6 +86,7 @@ const store = useReminderStore()
 const emit = defineEmits<{
   (e: 'edit', reminder: Reminder): void
   (e: 'cancel', reminder: Reminder): void
+  (e: 'togglePriority', reminder: Reminder): void
 }>()
 
 const props = defineProps<{
@@ -141,6 +159,29 @@ const highlightedIds = computed(() => {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
+}
+
+.priority-flag-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--ion-color-medium, #92949c);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.2s ease;
+}
+
+.priority-flag-btn:focus-visible {
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: 2px;
+}
+
+.priority-flag-btn.is-priority {
+  color: var(--ion-color-warning, #ffc409);
 }
 
 .empty-state {

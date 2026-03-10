@@ -262,4 +262,36 @@ describe('ReminderList.vue (E3-01)', () => {
     const deleteBtn = wrapper.find('[data-test="static-delete-btn"]')
     expect(deleteBtn.exists()).toBe(false)
   })
+
+  it('emits togglePriority event when priority flag is clicked', async () => {
+    const store = useReminderStore()
+    store.reminders = [
+      {
+        id: '1',
+        title: 'Meeting with team',
+        originalText: 'meeting tomorrow',
+        language: ReminderLanguage.EN,
+        scheduledAt: new Date(),
+        source: ReminderSource.TEXT,
+        parserMode: ReminderParserMode.LOCAL,
+        status: ReminderStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        priority: false,
+      },
+    ]
+
+    const wrapper = mount(ReminderList, {
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    const priorityFlag = wrapper.find('[data-test="priority-flag"]')
+    await priorityFlag.trigger('click')
+
+    expect(wrapper.emitted('togglePriority')).toBeTruthy()
+    expect(wrapper.emitted('togglePriority')![0][0]).toEqual(store.reminders[0])
+  })
 })

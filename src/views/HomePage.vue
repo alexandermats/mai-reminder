@@ -47,6 +47,7 @@
         :compact-empty-state="viewMode === 'calendar'"
         @edit="onEdit"
         @cancel="onDelete"
+        @toggle-priority="onTogglePriority"
       ></reminder-list>
 
       <confirmation-modal
@@ -375,6 +376,19 @@ async function onDelete(reminder: Reminder) {
     })
     store.updateReminder(reminder.id, { status: ReminderStatus.CANCELLED })
   })
+}
+
+async function onTogglePriority(reminder: Reminder) {
+  try {
+    const newPriority = !reminder.priority
+    const updated = await reminderRepository.update(reminder.id, {
+      priority: newPriority,
+      updatedAt: new Date(),
+    })
+    store.updateReminder(reminder.id, updated)
+  } catch (err) {
+    showError(err)
+  }
 }
 
 async function promptRecurringScope(handlers: {
