@@ -11,6 +11,7 @@ import { useNetworkStatus } from './composables/useNetworkStatus'
 import { useSettingsStore } from './stores/settings'
 import { notificationService } from './services/notificationService'
 import { syncEngine } from './services/syncEngine'
+import { useReminderStore } from './stores/reminder'
 import { StatusBar } from '@capacitor/status-bar'
 import { isCapacitorNative } from './utils/platform'
 
@@ -18,6 +19,7 @@ import { isCapacitorNative } from './utils/platform'
 useNetworkStatus()
 
 const settingsStore = useSettingsStore()
+const reminderStore = useReminderStore()
 
 onMounted(async () => {
   if (isCapacitorNative()) {
@@ -28,9 +30,10 @@ onMounted(async () => {
       console.warn('StatusBar configuration failed', e)
     }
   }
-
-  settingsStore.initialize()
-  notificationService.initialize()
+  await settingsStore.initialize()
+  reminderStore.initialize()
+  await notificationService.initialize()
+  await reminderStore.reconcileStartupReminders()
   syncEngine.start()
 })
 

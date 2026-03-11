@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { Pinia, createPinia, setActivePinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
 import HomePage from '../src/views/HomePage.vue'
@@ -83,11 +83,11 @@ describe('HomePage edit sent reminder (E6-07)', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   }
-
   beforeEach(() => {
     pinia = createPinia()
     setActivePinia(pinia)
     vi.mocked(reminderAdapter.list).mockClear()
+    vi.mocked(reminderAdapter.list).mockResolvedValue([sentReminder as unknown as Reminder])
     vi.mocked(reminderAdapter.update).mockClear()
     const { notifications } = useNotifications()
     notifications.value = []
@@ -128,8 +128,8 @@ describe('HomePage edit sent reminder (E6-07)', () => {
     })
 
     const { useReminderStore } = await import('../src/stores/reminder')
-    const store = useReminderStore()
-    store.addReminder(sentReminder as unknown as Reminder)
+    useReminderStore()
+    await flushPromises()
 
     await wrapper.get('[data-test="emit-edit"]').trigger('click')
     await wrapper.get('[data-test="emit-save"]').trigger('click')
@@ -172,8 +172,8 @@ describe('HomePage edit sent reminder (E6-07)', () => {
     })
 
     const { useReminderStore } = await import('../src/stores/reminder')
-    const store = useReminderStore()
-    store.addReminder(sentReminder as unknown as Reminder)
+    useReminderStore()
+    await flushPromises()
 
     await wrapper.get('[data-test="emit-edit"]').trigger('click')
     await wrapper.get('[data-test="emit-save"]').trigger('click')
@@ -225,9 +225,12 @@ describe('HomePage edit sent reminder (E6-07)', () => {
       },
     })
 
+    vi.mocked(reminderAdapter.list).mockResolvedValue([dismissedReminder as unknown as Reminder])
+
     const { useReminderStore } = await import('../src/stores/reminder')
-    const store = useReminderStore()
-    store.addReminder(dismissedReminder as unknown as Reminder)
+    useReminderStore()
+
+    await flushPromises()
 
     await wrapper.get('[data-test="emit-edit"]').trigger('click')
     await wrapper.get('[data-test="emit-save"]').trigger('click')
