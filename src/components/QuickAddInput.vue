@@ -341,9 +341,8 @@ onUnmounted(() => {
 
 <style scoped>
 .quick-add-container {
-  padding: 8px 16px;
-  background: var(--ion-background-color);
-  border-top: 1px solid var(--ion-color-light);
+  padding: 8px 12px 12px;
+  background: transparent;
 }
 
 .voice-test-hooks {
@@ -359,21 +358,31 @@ onUnmounted(() => {
 }
 
 .input-item {
-  --background: var(--ion-color-light);
+  --background: rgba(255, 255, 255, 0.9);
   --border-radius: 24px;
   --padding-start: 16px;
   --inner-padding-end: 8px;
   margin-bottom: 0;
   transition: all 0.3s ease;
+  border-radius: 24px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.05);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.8);
 }
 
 .input-item.is-recording {
-  --background: rgba(var(--ion-color-danger-rgb), 0.1);
+  --background: rgba(255, 235, 235, 0.9);
 }
 
 .custom-input {
-  --padding-top: 12px;
-  --padding-bottom: 12px;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  font-size: 15px;
+  font-weight: 400;
+  color: #1c1c1e;
 }
 
 ion-button {
@@ -383,8 +392,8 @@ ion-button {
 }
 
 ion-spinner {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .recording-indicator {
@@ -395,22 +404,22 @@ ion-spinner {
 }
 
 .pulsing-circle {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   background-color: var(--ion-color-danger);
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
 
 .listening-text {
-  font-size: 0.9em;
+  font-size: 0.88em;
   color: var(--ion-color-danger);
   font-weight: 500;
 }
 
 .interim-text {
   flex: 1;
-  padding: 12px 0;
+  padding: 10px 0;
   color: var(--ion-color-medium);
   font-style: italic;
   white-space: nowrap;
@@ -423,7 +432,7 @@ ion-spinner {
     box-shadow: 0 0 0 0 rgba(var(--ion-color-danger-rgb), 0.7);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(var(--ion-color-danger-rgb), 0);
+    box-shadow: 0 0 0 8px rgba(var(--ion-color-danger-rgb), 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(var(--ion-color-danger-rgb), 0);

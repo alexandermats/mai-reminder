@@ -112,30 +112,32 @@ const highlightedIds = computed(() => {
 <style scoped>
 .modern-list {
   background: transparent;
-  padding: 16px;
+  padding: 8px 16px 100px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .reminder-item-card {
-  --background: var(--ion-background-color, #fff);
-  --border-radius: 16px;
+  --background: #ffffff;
+  --border-radius: 14px;
   --padding-start: 16px;
   --padding-end: 16px;
-  --padding-top: 16px;
-  --padding-bottom: 16px;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
   --inner-padding-end: 0;
   margin: 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--ion-color-step-100, #f0f0f0);
-  transition: all 0.3s ease;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 0.5px 2px rgba(0, 0, 0, 0.04);
+  border: 0.5px solid rgba(60, 60, 67, 0.08);
+  transition: all 0.2s ease;
 }
 
 .highlight-missed {
-  border-color: var(--ion-color-primary, #3880ff) !important;
-  --background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.08) !important;
-  background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.08) !important;
+  border-color: #007aff !important;
+  --background: rgba(0, 122, 255, 0.06) !important;
+  background: rgba(0, 122, 255, 0.06) !important;
 }
 
 /* Base grid layout */
@@ -164,24 +166,31 @@ const highlightedIds = computed(() => {
 .priority-flag-btn {
   background: transparent;
   border: none;
-  font-size: 1.5rem;
-  color: var(--ion-color-medium, #92949c);
+  font-size: 1.3rem;
+  color: #aeaeb2;
   cursor: pointer;
   padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 0.15s ease;
 }
 
 .priority-flag-btn:focus-visible {
-  outline: 2px solid var(--ion-color-primary);
+  outline: 2px solid #007aff;
   outline-offset: 2px;
 }
 
 .priority-flag-btn.is-priority {
-  color: var(--ion-color-warning, #ffc409);
+  color: #ff9f0a;
+}
+
+.priority-flag-btn.is-priority:active,
+.priority-flag-btn:active {
+  transform: scale(0.85);
 }
 
 .empty-state {
@@ -191,15 +200,22 @@ const highlightedIds = computed(() => {
   justify-content: center;
   min-height: 200px;
   margin-top: 20vh;
-  color: var(--ion-color-medium);
+  color: #aeaeb2;
   padding: 2rem;
   text-align: center;
 }
 
 .empty-icon {
-  font-size: 4rem;
+  font-size: 3.5rem;
   margin-bottom: 1rem;
-  opacity: 0.5;
+  opacity: 0.45;
+}
+
+.empty-state p {
+  font-size: 15px;
+  font-weight: 400;
+  color: #8e8e93;
+  letter-spacing: -0.1px;
 }
 
 .empty-state.compact-empty-state {

@@ -488,31 +488,34 @@ async function skipCurrentOccurrence(reminder: Reminder) {
 
 <style scoped>
 ion-footer {
-  background: var(--ion-background-color);
+  background: transparent;
 }
 
 .header-controls {
-  padding: 8px 16px;
-  background: var(--ion-background-color);
+  padding: 6px 12px 4px;
+  background: transparent;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  position: sticky;
+  top: 0;
 }
 
 .status-segment {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .status-segment :deep(ion-label) {
-  font-size: 0.65rem !important;
+  font-size: 0.7rem !important;
+  font-weight: 500;
   letter-spacing: 0;
   white-space: nowrap;
 }
 
 .sent-count {
-  margin-left: 4px;
+  margin-left: 3px;
   font-weight: 700;
-  color: var(--ion-color-danger);
+  color: #ff3b30;
 }
 </style>

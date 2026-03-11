@@ -24,141 +24,158 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
-      <ion-item lines="full" class="ion-margin-bottom">
-        <ion-label position="stacked">{{ t('reminder.title') }}</ion-label>
-        <ion-input
-          v-model="editTitle"
-          type="text"
-          :placeholder="t('reminder.placeholder')"
-          class="title-input"
-        ></ion-input>
-      </ion-item>
+    <ion-content>
+      <!-- Title section -->
+      <div class="modal-section">
+        <div class="section-label">{{ t('reminder.title') }}</div>
+        <div class="section-card">
+          <ion-item lines="none" class="title-field">
+            <ion-input
+              v-model="editTitle"
+              type="text"
+              :placeholder="t('reminder.placeholder')"
+              class="title-input"
+            ></ion-input>
+          </ion-item>
+        </div>
+      </div>
 
-      <div class="datetime-wrapper">
-        <ion-label class="datetime-label">{{ t('reminder.time') }}</ion-label>
-        <div class="datetime-row">
-          <ion-datetime
-            v-model="editDate"
-            presentation="date-time"
-            :prefer-wheel="true"
-            class="custom-datetime"
-            :cancel-text="t('reminder.cancel')"
-            :done-text="t('reminder.save')"
-            :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
-            :locale="locale"
-          ></ion-datetime>
+      <!-- DateTime + days-of-week section -->
+      <div class="modal-section">
+        <div class="section-label">{{ t('reminder.time') }}</div>
+        <div class="section-card">
+          <div class="datetime-wrapper">
+            <div class="datetime-row">
+              <ion-datetime
+                v-model="editDate"
+                presentation="date-time"
+                :prefer-wheel="true"
+                class="custom-datetime"
+                :cancel-text="t('reminder.cancel')"
+                :done-text="t('reminder.save')"
+                :hour-cycle="settingsStore.timeFormat === '12h' ? 'h12' : 'h23'"
+                :locale="locale"
+              ></ion-datetime>
 
-          <div v-if="recurrenceType === 'hours'" class="hourly-days-section">
-            <ion-label id="hourly-days-label" class="days-label">{{
-              t('reminder.recurrenceDay', 'Days:')
-            }}</ion-label>
-            <div class="days-grid" role="group" aria-labelledby="hourly-days-label">
-              <ion-button
-                v-for="day in dayMap"
-                :key="day"
-                :color="hourlyRecurrenceDays.includes(day) ? 'primary' : 'medium'"
-                :fill="hourlyRecurrenceDays.includes(day) ? 'solid' : 'outline'"
-                class="day-btn"
-                data-test="hourly-day-btn"
-                :aria-pressed="hourlyRecurrenceDays.includes(day)"
-                @click="toggleHourlyDay(day)"
-              >
-                {{ t(`reminder.weekdaysShort.${day.toLowerCase()}`) }}
-              </ion-button>
+              <div v-if="recurrenceType === 'hours'" class="hourly-days-section">
+                <ion-label id="hourly-days-label" class="days-label">{{
+                  t('reminder.recurrenceDay', 'Days:')
+                }}</ion-label>
+                <div class="days-grid" role="group" aria-labelledby="hourly-days-label">
+                  <ion-button
+                    v-for="day in dayMap"
+                    :key="day"
+                    :color="hourlyRecurrenceDays.includes(day) ? 'primary' : 'medium'"
+                    :fill="hourlyRecurrenceDays.includes(day) ? 'solid' : 'outline'"
+                    class="day-btn"
+                    data-test="hourly-day-btn"
+                    :aria-pressed="hourlyRecurrenceDays.includes(day)"
+                    @click="toggleHourlyDay(day)"
+                  >
+                    {{ t(`reminder.weekdaysShort.${day.toLowerCase()}`) }}
+                  </ion-button>
+                </div>
+              </div>
             </div>
+
+            <ion-note
+              v-if="recurrenceDescription"
+              class="recurrence-description"
+              data-test="recurrence-description"
+            >
+              {{ recurrenceDescription }}
+            </ion-note>
           </div>
         </div>
-
-        <ion-note
-          v-if="recurrenceDescription"
-          class="recurrence-description"
-          data-test="recurrence-description"
-        >
-          {{ recurrenceDescription }}
-        </ion-note>
       </div>
 
-      <div class="recurrence-container ion-margin-top">
-        <ion-item lines="full" class="recurrence-item">
-          <ion-label position="stacked">{{ t('reminder.recurrence') }}</ion-label>
-          <div class="recurrence-horizontal-group">
-            <span v-if="recurrenceType !== 'none'" class="every-label" aria-hidden="true">{{
-              everyLabelText
-            }}</span>
+      <!-- Recurrence section -->
+      <div class="modal-section recurrence-container">
+        <div class="section-label">{{ t('reminder.recurrence') }}</div>
+        <div class="section-card">
+          <ion-item lines="none" class="recurrence-item">
+            <div class="recurrence-horizontal-group">
+              <span v-if="recurrenceType !== 'none'" class="every-label" aria-hidden="true">{{
+                everyLabelText
+              }}</span>
 
-            <ion-input
-              v-if="['hours', 'days', 'weeks'].includes(recurrenceType)"
-              type="number"
-              :value="recurrenceInterval"
-              data-test="recurrence-interval-input"
-              min="1"
-              class="narrow-interval-input"
-              :aria-label="t('reminder.intervalN')"
-              @ion-input="recurrenceInterval = parseInt($event.detail.value || '1', 10) || 1"
-            ></ion-input>
+              <ion-input
+                v-if="['hours', 'days', 'weeks'].includes(recurrenceType)"
+                type="number"
+                :value="recurrenceInterval"
+                data-test="recurrence-interval-input"
+                min="1"
+                class="narrow-interval-input"
+                :aria-label="t('reminder.intervalN')"
+                @ion-input="recurrenceInterval = parseInt($event.detail.value || '1', 10) || 1"
+              ></ion-input>
 
-            <ion-select
-              v-if="recurrenceType === 'dayOfWeek'"
-              v-model="recurrenceDay"
-              data-test="recurrence-day-select"
-              interface="popover"
-              :cancel-text="t('reminder.cancel')"
-              :ok-text="t('reminder.save')"
-              aria-label="Day of week"
-              class="narrow-day-select day-of-week-override-select"
-            >
-              <ion-select-option value="MO">{{
-                t('reminder.weekdaysAccusative.mo')
-              }}</ion-select-option>
-              <ion-select-option value="TU">{{
-                t('reminder.weekdaysAccusative.tu')
-              }}</ion-select-option>
-              <ion-select-option value="WE">{{
-                t('reminder.weekdaysAccusative.we')
-              }}</ion-select-option>
-              <ion-select-option value="TH">{{
-                t('reminder.weekdaysAccusative.th')
-              }}</ion-select-option>
-              <ion-select-option value="FR">{{
-                t('reminder.weekdaysAccusative.fr')
-              }}</ion-select-option>
-              <ion-select-option value="SA">{{
-                t('reminder.weekdaysAccusative.sa')
-              }}</ion-select-option>
-              <ion-select-option value="SU">{{
-                t('reminder.weekdaysAccusative.su')
-              }}</ion-select-option>
-            </ion-select>
+              <ion-select
+                v-if="recurrenceType === 'dayOfWeek'"
+                :key="locale"
+                v-model="recurrenceDay"
+                data-test="recurrence-day-select"
+                interface="popover"
+                :cancel-text="t('reminder.cancel')"
+                :ok-text="t('reminder.save')"
+                aria-label="Day of week"
+                class="narrow-day-select day-of-week-override-select"
+              >
+                <ion-select-option value="MO">{{
+                  t('reminder.weekdaysAccusative.mo')
+                }}</ion-select-option>
+                <ion-select-option value="TU">{{
+                  t('reminder.weekdaysAccusative.tu')
+                }}</ion-select-option>
+                <ion-select-option value="WE">{{
+                  t('reminder.weekdaysAccusative.we')
+                }}</ion-select-option>
+                <ion-select-option value="TH">{{
+                  t('reminder.weekdaysAccusative.th')
+                }}</ion-select-option>
+                <ion-select-option value="FR">{{
+                  t('reminder.weekdaysAccusative.fr')
+                }}</ion-select-option>
+                <ion-select-option value="SA">{{
+                  t('reminder.weekdaysAccusative.sa')
+                }}</ion-select-option>
+                <ion-select-option value="SU">{{
+                  t('reminder.weekdaysAccusative.su')
+                }}</ion-select-option>
+              </ion-select>
 
-            <ion-select
-              v-model="recurrenceType"
-              data-test="recurrence-type-select"
-              class="recurrence-select"
-              interface="action-sheet"
-              :selected-text="recurrenceSelectText"
-              :cancel-text="t('reminder.cancel')"
-              :ok-text="t('reminder.save')"
-              :aria-label="t('reminder.recurrence')"
-            >
-              <ion-select-option value="none">{{
-                t('reminder.recurrencePickerNone')
-              }}</ion-select-option>
-              <ion-select-option value="hours">{{ hoursOptionText }}</ion-select-option>
-              <ion-select-option value="days">{{ daysOptionText }}</ion-select-option>
-              <ion-select-option value="weeks">{{ weeksOptionText }}</ion-select-option>
-              <ion-select-option value="dayOfWeek">{{
-                t('reminder.unitDayOfWeek')
-              }}</ion-select-option>
-            </ion-select>
-          </div>
-        </ion-item>
+              <ion-select
+                :key="locale"
+                v-model="recurrenceType"
+                data-test="recurrence-type-select"
+                class="recurrence-select"
+                interface="action-sheet"
+                :selected-text="recurrenceSelectText"
+                :cancel-text="t('reminder.cancel')"
+                :ok-text="t('reminder.save')"
+                :aria-label="t('reminder.recurrence')"
+              >
+                <ion-select-option value="none">{{
+                  t('reminder.recurrencePickerNone')
+                }}</ion-select-option>
+                <ion-select-option value="hours">{{ hoursOptionText }}</ion-select-option>
+                <ion-select-option value="days">{{ daysOptionText }}</ion-select-option>
+                <ion-select-option value="weeks">{{ weeksOptionText }}</ion-select-option>
+                <ion-select-option value="dayOfWeek">{{
+                  t('reminder.unitDayOfWeek')
+                }}</ion-select-option>
+              </ion-select>
+            </div>
+          </ion-item>
+        </div>
       </div>
 
-      <div v-if="result.confidence < 0.7" class="confidence-warning ion-margin-top">
+      <div v-if="result.confidence < 0.7" class="confidence-warning">
         <ion-icon :icon="warningOutline" color="warning"></ion-icon>
         <p>Low confidence parse. Please verify details.</p>
       </div>
+
+      <div class="bottom-pad"></div>
     </ion-content>
   </ion-modal>
 </template>
@@ -383,121 +400,177 @@ function onCancel() {
 </script>
 
 <style scoped>
+/* === Modal background matches iOS system background === */
+ion-content {
+  --background: #f2f2f7;
+  --padding-top: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+/* === Section spacing === */
+.modal-section {
+  margin: 16px 16px 0;
+}
+
+/* === Section label (iOS-style muted header) === */
+.section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+
+/* === White card blocks === */
+.section-card {
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 0.5px solid rgba(60, 60, 67, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* === Title field === */
+.title-input {
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  --padding-start: 14px;
+  font-size: 16px;
+  font-weight: 400;
+  color: #1c1c1e;
+  --placeholder-color: #c7c7cc;
+  --background: transparent;
+}
+
+ion-item.title-field {
+  --background: transparent;
+  --border-width: 0;
+  --inner-border-width: 0;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+}
+
+/* === Datetime wrapper === */
 .datetime-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 0;
+  padding: 0;
+  background: #f8f8f8;
 }
 
 .datetime-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
+.custom-datetime {
+  border-radius: 0;
+  background: transparent;
+  --background: transparent;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* === Days section (hourly days of week) === */
 .hourly-days-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1 1 200px;
+  padding: 8px 14px 14px;
+  width: 100%;
+  border-top: 0.5px solid rgba(60, 60, 67, 0.08);
 }
 
 .days-label {
-  font-size: 0.8rem;
-  color: var(--ion-color-medium);
+  font-size: 12px;
+  font-weight: 500;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .days-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .day-btn {
   margin: 0;
-  --padding-start: 8px;
-  --padding-end: 8px;
-  min-width: 40px;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --border-radius: 20px;
+  min-width: 42px;
+  height: 34px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  /* override generic Ionic blue with iOS blue */
+  --color: #007aff;
+  --border-color: #007aff;
 }
 
-.datetime-label {
-  font-size: 0.8rem;
-  color: var(--ion-color-medium);
-}
-
-.custom-datetime {
-  border-radius: 6px;
-  background: var(--ion-color-light-tint);
-  --background: var(--ion-color-light-tint);
-}
-
+/* === Recurrence description note === */
 .recurrence-description {
-  color: var(--ion-color-medium-shade);
-  font-size: 0.85rem;
+  color: #8e8e93;
+  font-size: 13px;
+  padding: 6px 14px 12px;
+  display: block;
+  text-align: center;
 }
 
-.title-input {
-  --padding-top: 12px;
-  --padding-bottom: 12px;
-  font-size: 1.1rem;
-}
-
-.confidence-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--ion-color-warning-tint);
-  padding: 12px;
-  border-radius: 8px;
-  color: var(--ion-color-warning-shade);
-}
-
-.confidence-warning p {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.recurrence-select {
-  --padding-start: 0;
-  width: 100%;
-  max-width: 100%;
-}
-
+/* === Recurrence section === */
 .recurrence-container {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
 }
 
 .recurrence-item {
   width: 100%;
+  --background: transparent;
+  --border-width: 0;
+  --inner-border-width: 0;
+  --padding-start: 14px;
+  --inner-padding-end: 14px;
 }
 
 .recurrence-horizontal-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   padding-top: 8px;
   padding-bottom: 8px;
 }
 
 .every-label {
-  font-size: 1rem;
-  color: var(--ion-text-color);
+  font-size: 14px;
+  color: #1c1c1e;
   white-space: nowrap;
 }
 
 .narrow-interval-input {
-  max-width: 70px;
-  min-width: 50px;
-  border-bottom: 1px solid var(--ion-color-medium);
+  max-width: 65px;
+  min-width: 48px;
+  border-bottom: 1.5px solid #007aff;
+  --padding-top: 4px;
+  --padding-bottom: 4px;
 }
 .narrow-interval-input::part(native) {
   text-align: center;
   padding-right: 0 !important;
+  font-size: 14px;
+  font-weight: 500;
+  color: #007aff;
 }
 .narrow-interval-input::part(native)::-webkit-inner-spin-button,
 .narrow-interval-input::part(native)::-webkit-outer-spin-button {
@@ -507,14 +580,48 @@ function onCancel() {
 }
 
 .narrow-day-select {
-  --padding-start: 8px;
-  --padding-end: 8px;
+  --padding-start: 0;
+  --padding-end: 4px;
   max-width: fit-content;
-  border-bottom: 1px solid var(--ion-color-medium);
+  border-bottom: 1.5px solid #007aff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #007aff;
 }
 
 .day-of-week-override-select {
-  color: var(--ion-text-color);
-  font-size: 1rem;
+  color: #007aff;
+  font-size: 14px;
+}
+
+.recurrence-select {
+  --padding-start: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: 14px;
+  color: #1c1c1e;
+}
+
+/* === Confidence warning === */
+.confidence-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 159, 10, 0.12);
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #b25000;
+  margin: 12px 16px 0;
+}
+
+.confidence-warning p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/* === Bottom padding === */
+.bottom-pad {
+  height: 40px;
 }
 </style>

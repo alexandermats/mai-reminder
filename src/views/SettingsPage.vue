@@ -14,11 +14,12 @@
       <div aria-live="polite" aria-atomic="true" class="sr-only">
         {{ announcement }}
       </div>
-      <ion-list>
+      <ion-list :inset="true">
         <!-- Language Section -->
         <ion-item>
           <ion-label>{{ t('settings.language') }}</ion-label>
           <ion-select
+            :key="locale"
             :value="settingsStore.language"
             :placeholder="t('language.select')"
             @ion-change="onLanguageChange"
@@ -30,7 +31,11 @@
 
         <ion-item>
           <ion-label>{{ t('settings.timeFormat') }}</ion-label>
-          <ion-select :value="settingsStore.timeFormat" @ion-change="onTimeFormatChange">
+          <ion-select
+            :key="locale"
+            :value="settingsStore.timeFormat"
+            @ion-change="onTimeFormatChange"
+          >
             <ion-select-option value="12h">{{ t('settings.format12h') }}</ion-select-option>
             <ion-select-option value="24h">{{ t('settings.format24h') }}</ion-select-option>
           </ion-select>
@@ -39,6 +44,7 @@
         <ion-item>
           <ion-label id="parser-mode-label">{{ t('settings.parserMode') }}</ion-label>
           <ion-toggle
+            slot="end"
             :checked="settingsStore.isAIParsingEnabled"
             data-test="ai-toggle"
             aria-labelledby="parser-mode-label"
@@ -59,52 +65,41 @@
             @ion-input="onApiKeyInput"
           />
         </ion-item>
-        <ion-item lines="none">
+        <ion-item
+          v-if="settingsStore.isAIParsingEnabled && !settingsStore.cerebrasApiKey"
+          lines="none"
+        >
           <ion-note>
-            {{
-              settingsStore.isAIParsingEnabled
-                ? settingsStore.cerebrasApiKey
-                  ? t('settings.aiParsingDescription')
-                  : t('settings.apiKeyMissing')
-                : t('settings.localParsingDescription')
-            }}
+            {{ t('settings.apiKeyMissing') }}
           </ion-note>
         </ion-item>
 
         <ion-item>
-          <ion-label id="fast-save-label">
-            <h3>{{ t('settings.fastSave') }}</h3>
-            <p id="fast-save-description">{{ t('settings.fastSaveDescription') }}</p>
-          </ion-label>
+          <ion-label id="fast-save-label">{{ t('settings.fastSave') }}</ion-label>
           <ion-toggle
+            slot="end"
             :checked="settingsStore.fastSave"
             data-test="fast-save-toggle"
             aria-labelledby="fast-save-label"
-            aria-describedby="fast-save-description"
             @ion-change="onFastSaveChange"
           />
         </ion-item>
 
         <ion-item v-if="isElectron()">
-          <ion-label id="open-at-login-label">
-            <h3>{{ t('settings.openAtLogin') }}</h3>
-            <p id="open-at-login-description">{{ t('settings.openAtLoginDescription') }}</p>
-          </ion-label>
+          <ion-label id="open-at-login-label">{{ t('settings.openAtLogin') }}</ion-label>
           <ion-toggle
+            slot="end"
             :checked="settingsStore.openAtLogin"
             data-test="open-at-login-toggle"
             aria-labelledby="open-at-login-label"
-            aria-describedby="open-at-login-description"
             @ion-change="onOpenAtLoginChange"
           />
         </ion-item>
 
-        <ion-item v-if="isElectron()">
-          <ion-label position="stacked">
-            {{ t('settings.hotkey') }}
-            <p>{{ t('settings.hotkeyDescription') }}</p>
-          </ion-label>
+        <ion-item v-if="isElectron()" class="hotkey-item">
+          <ion-label position="stacked">{{ t('settings.hotkey') }}</ion-label>
           <ion-input
+            class="hotkey-input"
             :value="settingsStore.quickAddHotkey"
             :placeholder="t('settings.hotkeyPlaceholder')"
             data-test="hotkey-input"
@@ -113,26 +108,23 @@
         </ion-item>
 
         <ion-item lines="none">
-          <ion-note class="section-note">{{ t('settings.hourlyWindowDescription') }}</ion-note>
+          <ion-label>{{ t('settings.hourlyWindowSection') }}</ion-label>
         </ion-item>
-        <ion-item>
-          <ion-label position="stacked">
-            <h3 style="font-weight: bold; margin-bottom: 4px">
-              {{ t('settings.hourlyWindowSection') }}
-            </h3>
-            {{ t('settings.hourlyStartTime') }}
-          </ion-label>
+        <ion-item class="sub-setting">
+          <ion-label>{{ t('settings.hourlyStartTime') }}</ion-label>
           <ion-input
             type="time"
+            class="ion-text-right"
             :value="settingsStore.hourlyReminderStartTime"
             data-test="hourly-start-input"
             @ion-change="onHourlyStartChange"
           />
         </ion-item>
-        <ion-item>
-          <ion-label position="stacked">{{ t('settings.hourlyEndTime') }}</ion-label>
+        <ion-item class="sub-setting">
+          <ion-label>{{ t('settings.hourlyEndTime') }}</ion-label>
           <ion-input
             type="time"
+            class="ion-text-right"
             :value="settingsStore.hourlyReminderEndTime"
             data-test="hourly-end-input"
             @ion-change="onHourlyEndChange"
@@ -140,16 +132,12 @@
         </ion-item>
 
         <ion-item>
-          <ion-label id="cloud-sync-label">
-            <p id="cloud-sync-description">
-              {{ t('settings.cloudSyncDescription') }}
-            </p>
-          </ion-label>
+          <ion-label id="cloud-sync-label">{{ t('settings.cloudSyncDescription') }}</ion-label>
           <ion-toggle
+            slot="end"
             :checked="settingsStore.cloudSyncEnabled"
             data-test="cloud-sync-toggle"
             aria-labelledby="cloud-sync-label"
-            aria-describedby="cloud-sync-description"
             @ion-change="onCloudSyncChange"
           />
         </ion-item>
@@ -170,24 +158,23 @@
             fill="outline"
             color="danger"
             data-test="clear-old-reminders-btn"
+            style="margin-right: 16px"
             @click="confirmClearOld"
           >
             {{ t('settings.clearOldReminders') }}
           </ion-button>
-          <ion-label class="sent-toggle-label">{{ t('settings.includeSent') }}</ion-label>
-          <ion-toggle v-model="includeSent" />
-        </ion-item>
-        <!-- Advanced Section -->
-        <ion-list-header>
-          <ion-label>{{ t('settings.advancedSection') }}</ion-label>
-        </ion-list-header>
-        <ion-item>
-          <ion-label position="stacked">
-            <h3>{{ t('settings.silenceTimeout') }}</h3>
-            <p>{{ t('settings.silenceTimeoutDescription') }}</p>
+
+          <ion-label class="sent-toggle-label" style="text-align: right">
+            {{ t('settings.includeSent') }}
           </ion-label>
+          <ion-toggle slot="end" v-model="includeSent" />
+        </ion-item>
+
+        <ion-item>
+          <ion-label>{{ t('settings.silenceTimeout') }}</ion-label>
           <ion-input
             type="number"
+            class="ion-text-right"
             :value="settingsStore.silenceTimeoutMs"
             min="500"
             max="10000"
@@ -198,12 +185,10 @@
         </ion-item>
 
         <ion-item v-if="isElectron()">
-          <ion-label position="stacked">
-            <h3>{{ t('settings.notificationDisplayTime') }}</h3>
-            <p>{{ t('settings.notificationDisplayTimeDescription') }}</p>
-          </ion-label>
+          <ion-label>{{ t('settings.notificationDisplayTime') }}</ion-label>
           <ion-input
             type="number"
+            class="ion-text-right"
             :value="settingsStore.notificationDisplayTimeSeconds"
             min="5"
             max="3600"
@@ -227,10 +212,8 @@
         <!-- About Section -->
 
         <ion-item lines="none">
-          <ion-label>
-            <h3>{{ t('settings.version') }}</h3>
-            <p>0.3.8</p>
-          </ion-label>
+          <ion-label>{{ t('settings.version') }}</ion-label>
+          <ion-note slot="end">0.3.8</ion-note>
         </ion-item>
         <ion-item lines="none">
           <ion-note class="ion-text-center">
@@ -252,7 +235,6 @@ import {
   IonTitle,
   IonContent,
   IonList,
-  IonListHeader,
   IonItem,
   IonLabel,
   IonSelect,
@@ -765,7 +747,7 @@ ion-item-divider {
 
 .section-note {
   font-size: 0.78rem;
-  color: var(--ion-color-medium);
+  color: #8e8e93;
   white-space: normal;
   padding: 2px 0;
 }
@@ -777,15 +759,75 @@ ion-item-divider {
 
 .sent-toggle-label {
   margin-left: 16px;
-  font-size: 0.75em;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  color: #666;
 }
 
 ion-list {
-  /* Extra bottom clearance for Android virtual buttons */
+  /* Extra bottom clearance */
   padding-bottom: 40px;
 }
 
-/* Screen reader only class - visually hidden but accessible to assistive technologies */
+ion-item {
+  --background: #ffffff;
+  font-size: 0.88rem;
+}
+
+ion-label,
+ion-input,
+ion-select,
+ion-note {
+  font-size: 0.88rem !important;
+}
+
+ion-item ion-label[position='stacked'] {
+  font-size: 0.82rem !important;
+  margin-bottom: 4px;
+}
+
+.hotkey-item {
+  --padding-bottom: 12px;
+}
+
+.hotkey-input {
+  --background: #f4f4f5 !important;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+  padding: 0 12px !important;
+  margin-left: 0 !important;
+}
+
+.sub-setting {
+  --inner-padding-start: 16px;
+}
+
+.sub-setting ion-label {
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  color: #666;
+}
+
+ion-label {
+  white-space: nowrap !important;
+}
+
+ion-input {
+  margin-left: 16px;
+  --padding-end: 0;
+}
+
+/* Ensure pickers (time/number) don't take too much horizontal space if possible */
+ion-input[type='number'],
+ion-input[type='time'] {
+  max-width: 120px;
+}
+
+/* Screen reader only class */
 .sr-only {
   position: absolute;
   width: 1px;
