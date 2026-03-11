@@ -109,7 +109,7 @@ import { useSettingsStore } from '../stores/settings'
 import { reminderAdapter as reminderRepository } from '../services/reminderAdapter'
 import { isCapacitorNative } from '../utils/platform'
 import type { ParseResult } from '../parser/orchestrator'
-import { applyHourlyRecurrenceWindow } from '../utils/hourlyRecurrence'
+import { applyRecurrenceSnapping } from '../utils/hourlyRecurrence'
 import { alignRecurrenceRuleTime, getNextScheduledAt } from '../services/schedulerService'
 import type { Reminder } from '../types/reminder'
 import {
@@ -240,7 +240,7 @@ async function onSave(result: ParseResult) {
 
         // Always normalize hourly recurrences with settings window bounds
         if (finalRule) {
-          const normalized = applyHourlyRecurrenceWindow(
+          const normalized = applyRecurrenceSnapping(
             { ...result, scheduledAt: finalScheduledAt, recurrenceRule: finalRule },
             new Date(),
             settingsStore.hourlyReminderStartTime,
@@ -275,7 +275,7 @@ async function onSave(result: ParseResult) {
       }
     } else {
       // Create new
-      const normalizedResult = applyHourlyRecurrenceWindow(
+      const normalizedResult = applyRecurrenceSnapping(
         result,
         new Date(),
         settingsStore.hourlyReminderStartTime,

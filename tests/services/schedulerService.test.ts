@@ -82,9 +82,9 @@ describe('schedulerService', () => {
 
       expect(aligned).toContain('FREQ=WEEKLY')
       expect(aligned).toContain('BYDAY=MO')
-      expect(aligned).toContain(`BYHOUR=${editedAt.getHours()}`)
-      expect(aligned).toContain(`BYMINUTE=${editedAt.getMinutes()}`)
-      expect(aligned).toContain(`BYSECOND=${editedAt.getSeconds()}`)
+      expect(aligned).toContain(`BYHOUR=${editedAt.getUTCHours()}`)
+      expect(aligned).toContain(`BYMINUTE=${editedAt.getUTCMinutes()}`)
+      expect(aligned).toContain(`BYSECOND=${editedAt.getUTCSeconds()}`)
     })
 
     it('does NOT overwrite BYHOUR for hourly rules', () => {
@@ -96,8 +96,8 @@ describe('schedulerService', () => {
 
       expect(aligned).toContain('FREQ=HOURLY')
       expect(aligned).toContain('INTERVAL=2')
-      expect(aligned).toContain(`BYMINUTE=${editedAt.getMinutes()}`)
-      expect(aligned).toContain(`BYSECOND=${editedAt.getSeconds()}`)
+      expect(aligned).toContain(`BYMINUTE=${editedAt.getUTCMinutes()}`)
+      expect(aligned).toContain(`BYSECOND=${editedAt.getUTCSeconds()}`)
       // Should NOT contain BYHOUR for hourly rules
       expect(aligned).not.toContain('BYHOUR')
     })

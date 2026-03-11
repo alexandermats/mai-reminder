@@ -30,7 +30,7 @@ import {
 } from '../types/reminder'
 import type { ParseResult } from '../parser/orchestrator'
 import { isParseFailureError } from '../parser/types'
-import { applyHourlyRecurrenceWindow } from '../utils/hourlyRecurrence'
+import { applyRecurrenceSnapping } from '../utils/hourlyRecurrence'
 
 const { t } = useI18n()
 const store = useReminderStore()
@@ -39,7 +39,7 @@ const { notifications, showError, dismiss } = useNotifications()
 
 async function handleResult(result: ParseResult) {
   try {
-    const normalizedResult = applyHourlyRecurrenceWindow(
+    const normalizedResult = applyRecurrenceSnapping(
       result,
       new Date(),
       settingsStore.hourlyReminderStartTime,

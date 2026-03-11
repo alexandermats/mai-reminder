@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  applyHourlyRecurrenceWindow,
+  applyRecurrenceSnapping,
   normalizeHourlyRecurrenceRule,
   isWithinHourlyWindow,
   snapToHourlyWindow,
@@ -17,23 +17,21 @@ function makeResult(rule: string | undefined, scheduledAt: Date): ParseResult {
   }
 }
 
-describe('applyHourlyRecurrenceWindow', () => {
-  it('keeps non-hourly recurrence untouched', () => {
+describe('applyRecurrenceSnapping', () => {
+  it('snaps non-hourly recurrence to the future if needed', () => {
     const input = makeResult('FREQ=DAILY', new Date(2026, 2, 1, 10, 0, 0))
-    const output = applyHourlyRecurrenceWindow(
-      input,
-      new Date(2026, 2, 1, 10, 15, 0),
-      '09:00',
-      '22:00'
-    )
+    const now = new Date(2026, 2, 1, 10, 15, 0)
+    const output = applyRecurrenceSnapping(input, now, '09:00', '22:00')
 
-    expect(output).toEqual(input)
+    expect(output.scheduledAt.getDate()).toBe(2) // Should snap to tomorrow 10 AM
+    expect(output.scheduledAt.getHours()).toBe(10)
+    expect(output.scheduledAt.getMinutes()).toBe(0)
   })
 
   it('normalizes hourly rule to simple RRULE without BYHOUR', () => {
     const input = makeResult('FREQ=HOURLY;INTERVAL=2', new Date(2026, 2, 1, 10, 0, 0))
     const now = new Date(2026, 2, 1, 10, 15, 0)
-    const output = applyHourlyRecurrenceWindow(input, now, '09:00', '22:00')
+    const output = applyRecurrenceSnapping(input, now, '09:00', '22:00')
 
     // RRULE should NOT contain BYHOUR — window is applied dynamically
     expect(output.recurrenceRule).toBe('FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0')
@@ -50,7 +48,7 @@ describe('applyHourlyRecurrenceWindow', () => {
       new Date(2026, 2, 1, 10, 0, 0)
     )
     const now = new Date(2026, 2, 1, 10, 15, 0)
-    const output = applyHourlyRecurrenceWindow(input, now, '09:00', '22:00')
+    const output = applyRecurrenceSnapping(input, now, '09:00', '22:00')
 
     expect(output.recurrenceRule).toBe(
       'FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0;BYDAY=MO,WE,FR'
@@ -61,7 +59,7 @@ describe('applyHourlyRecurrenceWindow', () => {
     const selected = new Date(2026, 2, 1, 11, 37, 0)
     const input = makeResult('FREQ=HOURLY;INTERVAL=1', selected)
     const now = new Date(2026, 2, 1, 10, 15, 0)
-    const output = applyHourlyRecurrenceWindow(input, now, '09:00', '22:00')
+    const output = applyRecurrenceSnapping(input, now, '09:00', '22:00')
 
     expect(output.scheduledAt.getTime()).toBe(selected.getTime())
     // Simple RRULE with anchor minute, no BYHOUR
@@ -72,7 +70,7 @@ describe('applyHourlyRecurrenceWindow', () => {
   it('schedules first occurrence tomorrow when no future slot remains today', () => {
     const input = makeResult('FREQ=HOURLY;INTERVAL=2', new Date(2026, 2, 1, 10, 0, 0))
     const now = new Date(2026, 2, 1, 22, 30, 0)
-    const output = applyHourlyRecurrenceWindow(input, now, '09:00', '22:00')
+    const output = applyRecurrenceSnapping(input, now, '09:00', '22:00')
 
     expect(output.scheduledAt.getDate()).toBe(now.getDate() + 1)
     expect(output.scheduledAt.getHours()).toBe(10)

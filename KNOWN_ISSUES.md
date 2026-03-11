@@ -30,7 +30,3 @@ Change the alert style from "Temporary" to "Persistent" ("Banners" to "Alerts" i
 Recurring reminders may not work properly when synced between devices in different timezones.
 
 - **Offline Deletions Not Synced**: If reminders are deleted (via **Clear Old Reminders**) while the device is offline, or while **Cloud Sync is disabled**, those deletions will not be propagated to the cloud. When sync resumes, the cloud copy of the deleted reminder may be pulled back locally.
-
-## UI
-
-- **Settings page still needs redesign.**

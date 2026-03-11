@@ -171,7 +171,12 @@ export function normalizeHourlyRecurrenceRule(
   return buildHourlyRecurrenceRule(interval, start, safeEnd, anchorHour, anchorMinute, byweekday)
 }
 
-export function applyHourlyRecurrenceWindow(
+/**
+ * Adjust the scheduled time and recurrence rule to fit within the configured window.
+ * For hourly reminders, it snaps to the window and ensures the rule is canonical.
+ * For other recurring reminders, it ensures the scheduledAt is in the future.
+ */
+export function applyRecurrenceSnapping(
   result: ParseResult,
   now: Date,
   startTime: string,
@@ -183,6 +188,27 @@ export function applyHourlyRecurrenceWindow(
 
   const interval = parseHourlyInterval(result.recurrenceRule)
   if (!interval) {
+    // For non-hourly recurring reminders, ensure scheduledAt is in the future
+    if (result.scheduledAt.getTime() > now.getTime()) {
+      return result
+    }
+
+    try {
+      const parsedOptions = RRule.parseString(result.recurrenceRule.replace(/^RRULE:/i, ''))
+      const rule = new RRule({
+        ...parsedOptions,
+        dtstart: result.scheduledAt,
+      })
+      const next = rule.after(now, false)
+      if (next) {
+        return {
+          ...result,
+          scheduledAt: next,
+        }
+      }
+    } catch (e) {
+      console.error('[applyRecurrenceSnapping] Failed to snap non-hourly rule:', e)
+    }
     return result
   }
 

@@ -58,17 +58,17 @@ export function alignRecurrenceRuleTime(rule: string, scheduledAt: Date): string
   if (parsedOptions.freq === RRule.HOURLY) {
     const aligned = new RRule({
       ...parsedOptions,
-      byminute: [scheduledAt.getMinutes()],
-      bysecond: [scheduledAt.getSeconds()],
+      byminute: [scheduledAt.getUTCMinutes()],
+      bysecond: [scheduledAt.getUTCSeconds()],
     })
     return aligned.toString().replace(/^RRULE:/, '')
   }
 
   const aligned = new RRule({
     ...parsedOptions,
-    byhour: [scheduledAt.getHours()],
-    byminute: [scheduledAt.getMinutes()],
-    bysecond: [scheduledAt.getSeconds()],
+    byhour: [scheduledAt.getUTCHours()],
+    byminute: [scheduledAt.getUTCMinutes()],
+    bysecond: [scheduledAt.getUTCSeconds()],
   })
   return aligned.toString().replace(/^RRULE:/, '')
 }

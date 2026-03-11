@@ -297,14 +297,14 @@ describe('HomePage recurring prompts (E10-04)', () => {
       'rec-1',
       expect.objectContaining({
         title: 'Edited once',
-        recurrenceRule: expect.stringContaining(`BYHOUR=${editedAt.getHours()}`),
+        recurrenceRule: expect.stringContaining(`BYHOUR=${editedAt.getUTCHours()}`),
         updatedAt: expect.any(Date),
       })
     )
     expect(reminderAdapter.update).toHaveBeenCalledWith(
       'rec-1',
       expect.objectContaining({
-        recurrenceRule: expect.stringContaining(`BYMINUTE=${editedAt.getMinutes()}`),
+        recurrenceRule: expect.stringContaining(`BYMINUTE=${editedAt.getUTCMinutes()}`),
       })
     )
   })
