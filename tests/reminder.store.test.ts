@@ -552,7 +552,7 @@ describe('reminder store duplicate guard', () => {
         ...recurring,
         ...input,
         id: String(input.id),
-        status: ReminderStatus.SENT,
+        status: ReminderStatus.PENDING,
         scheduledAt: input.scheduledAt as Date,
         createdAt: nowDate,
         updatedAt: nowDate,
@@ -560,36 +560,42 @@ describe('reminder store duplicate guard', () => {
       adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
         ...recurring,
         ...changes,
-        status: ReminderStatus.PENDING,
+        status: ReminderStatus.SENT,
+        scheduledAt:
+          changes.scheduledAt instanceof Date ? changes.scheduledAt : recurring.scheduledAt,
         updatedAt: nowDate,
       }))
 
       const store = useReminderStore()
       await store.reconcileStartupReminders()
 
-      const sentCreated = vi.mocked(adapterCreateMock).mock.calls[0]?.[0] as
-        | { id: string; scheduledAt: Date; status: ReminderStatus }
+      const expectedNextDate = new Date(expectedNext)
+      const expectedNextId = `${recurring.id}-next-${expectedNextDate.getTime()}`
+      const createdNext = vi.mocked(adapterCreateMock).mock.calls[0]?.[0] as
+        | { id: string; scheduledAt: Date; status?: ReminderStatus }
         | undefined
-      expect(sentCreated).toBeDefined()
-      expect(sentCreated?.status).toBe(ReminderStatus.SENT)
-      expect(sentCreated?.scheduledAt.toISOString()).toBe(expectedLatest)
+      expect(createdNext).toBeDefined()
+      expect(createdNext?.id).toBe(expectedNextId)
+      expect(createdNext?.scheduledAt.toISOString()).toBe(expectedNext)
+      expect(createdNext?.status).toBe(ReminderStatus.PENDING)
 
       expect(adapterUpdateMock).toHaveBeenCalledWith(
         recurring.id,
         expect.objectContaining({
-          scheduledAt: new Date(expectedNext),
-          status: ReminderStatus.PENDING,
+          scheduledAt: new Date(expectedLatest),
+          status: ReminderStatus.SENT,
           _isSync: true,
         })
       )
 
-      const pending = store.reminders.find((item) => item.id === recurring.id)
-      const sent = store.reminders.find((item) => item.id !== recurring.id)
+      const pending = store.reminders.find((item) => item.id === expectedNextId)
+      const sent = store.reminders.find((item) => item.id === recurring.id)
       expect(pending?.status).toBe(ReminderStatus.PENDING)
       expect(pending?.scheduledAt.toISOString()).toBe(expectedNext)
       expect(sent?.status).toBe(ReminderStatus.SENT)
+      expect(sent?.scheduledAt.toISOString()).toBe(expectedLatest)
       expect(store.sentMissedCount).toBe(1)
-      expect(store.missedReminderIds.has(String(sentCreated?.id))).toBe(true)
+      expect(store.missedReminderIds.has(recurring.id)).toBe(true)
     }
   )
 
@@ -947,8 +953,9 @@ describe('reminder store duplicate guard', () => {
       return {
         ...recurring,
         ...changes,
-        status: ReminderStatus.PENDING,
-        scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+        status: ReminderStatus.SENT,
+        scheduledAt:
+          changes.scheduledAt instanceof Date ? changes.scheduledAt : recurring.scheduledAt,
         updatedAt: now,
       }
     })
@@ -971,32 +978,57 @@ describe('reminder store duplicate guard', () => {
     vi.setSystemTime(now)
 
     const state = {
-      reminder: {
+      overdue: {
         ...makeReminder('r-startup-idempotent', 'Do not duplicate'),
         scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
         recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
       },
+      next: null as Reminder | null,
     }
 
-    adapterListMock.mockImplementation(async () => [state.reminder])
-    adapterCreateMock.mockImplementation(async (input: Record<string, unknown>) => ({
-      ...state.reminder,
-      ...input,
-      id: String(input.id),
-      status: ReminderStatus.SENT,
-      scheduledAt: input.scheduledAt as Date,
-      createdAt: now,
-      updatedAt: now,
-    }))
-    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => {
-      state.reminder = {
-        ...state.reminder,
-        ...changes,
+    adapterListMock.mockImplementation(async () => {
+      const reminders: Reminder[] = [state.overdue]
+      if (state.next) reminders.push(state.next)
+      return reminders
+    })
+    adapterCreateMock.mockImplementation(async (input: Record<string, unknown>) => {
+      state.next = {
+        ...state.overdue,
+        ...input,
+        id: String(input.id),
         status: ReminderStatus.PENDING,
-        scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+        scheduledAt: input.scheduledAt as Date,
+        createdAt: now,
         updatedAt: now,
       }
-      return state.reminder
+      return state.next
+    })
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === state.overdue.id) {
+        state.overdue = {
+          ...state.overdue,
+          ...changes,
+          status: ReminderStatus.SENT,
+          scheduledAt:
+            changes.scheduledAt instanceof Date ? changes.scheduledAt : state.overdue.scheduledAt,
+          updatedAt: now,
+        }
+        return state.overdue
+      }
+      if (state.next && id === state.next.id) {
+        state.next = {
+          ...state.next,
+          ...changes,
+          updatedAt: now,
+        }
+        return state.next
+      }
+      return {
+        ...state.overdue,
+        ...changes,
+        status: ReminderStatus.SENT,
+        updatedAt: now,
+      }
     })
 
     const store = useReminderStore()
@@ -1006,8 +1038,12 @@ describe('reminder store duplicate guard', () => {
     expect(adapterUpdateMock).toHaveBeenCalledTimes(1)
     expect(adapterCreateMock).toHaveBeenCalledTimes(1)
     expect(store.sentMissedCount).toBe(1)
-    expect(store.reminders).toHaveLength(1)
-    expect(store.reminders.some((item) => item.id === state.reminder.id)).toBe(true)
+    expect(store.reminders).toHaveLength(2)
+    expect(store.reminders.some((item) => item.id === state.overdue.id)).toBe(true)
+    expect(state.next).not.toBeNull()
+    if (state.next) {
+      expect(store.reminders.some((item) => item.id === state.next.id)).toBe(true)
+    }
   })
 
   it('updates missed badge count when IPC badge:updated event arrives', () => {

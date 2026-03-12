@@ -4,7 +4,9 @@ import type { IReminderRepository } from '../types/repository'
 import { getNextScheduledAt } from './schedulerService'
 import { getReminderSeriesBaseId } from '../utils/reminderSeries'
 
-type TriggerTransitionRepository = Pick<IReminderRepository, 'update' | 'create'>
+type TriggerTransitionRepository = Pick<IReminderRepository, 'update' | 'create'> & {
+  getById?: IReminderRepository['getById']
+}
 
 export interface TriggerTransitionResult {
   sentReminder: Reminder
@@ -14,9 +16,19 @@ export interface TriggerTransitionResult {
 export async function applyTriggeredReminderTransition(
   reminder: Reminder,
   repository: TriggerTransitionRepository,
-  nextScheduledAt: Date | undefined = getNextScheduledAt(reminder)
+  nextScheduledAt: Date | undefined = getNextScheduledAt(reminder),
+  sentScheduledAt?: Date,
+  isSync: boolean = false
 ): Promise<TriggerTransitionResult> {
-  const sentReminder = await repository.update(reminder.id, { status: ReminderStatus.SENT })
+  const updatePayload: Partial<ReminderInput> = { status: ReminderStatus.SENT }
+  if (sentScheduledAt && !Number.isNaN(sentScheduledAt.getTime())) {
+    updatePayload.scheduledAt = sentScheduledAt
+  }
+  if (isSync) {
+    updatePayload._isSync = true
+  }
+
+  const sentReminder = await repository.update(reminder.id, updatePayload)
 
   if (!nextScheduledAt || Number.isNaN(nextScheduledAt.getTime())) {
     return { sentReminder }
@@ -52,9 +64,25 @@ export async function applyTriggeredReminderTransition(
     ...(typeof reminder.parseConfidence === 'number'
       ? { parseConfidence: reminder.parseConfidence }
       : {}),
+    ...(isSync ? { _isSync: true } : {}),
   }
 
-  const nextReminder = await repository.create(nextReminderInput)
+  let nextReminder: Reminder | undefined
+  try {
+    nextReminder = await repository.create(nextReminderInput)
+  } catch (error) {
+    if (repository.getById) {
+      const existing = await repository.getById(deterministicId)
+      if (existing) {
+        nextReminder = existing
+      } else {
+        throw error
+      }
+    } else {
+      throw error
+    }
+  }
+
   return {
     sentReminder,
     nextReminder,

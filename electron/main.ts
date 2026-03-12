@@ -110,6 +110,7 @@ interface PersistedReminder extends CoreReminder {
 interface TriggerTransitionRepository {
   update(id: string, changes: Record<string, unknown>): Promise<CoreReminder>
   create(input: Record<string, unknown>): Promise<CoreReminder>
+  getById?(id: string): Promise<CoreReminder | null>
 }
 
 interface MissedReminderRepository {
