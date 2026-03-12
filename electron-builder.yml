@@ -62,6 +62,7 @@ asarUnpack:
 mac:
   target:
     - dmg
+  artifactName: "Mai-Reminder-${version}-${arch}.${ext}"
   identity: null
   extendInfo:
     NSMicrophoneUsageDescription: 'This app requires microphone access to transcribe speech using Vosk.'
@@ -73,6 +74,7 @@ mac:
     - '!node_modules/koffi/build/koffi/darwin_x64/**'
 
 win:
+  artifactName: "Mai-Reminder-Setup-${version}.${ext}"
   asar: true
   target:
     - target: nsis
@@ -102,9 +104,3 @@ extraResources:
   - from: build/icon.png
     to: tray-icon.png
 
-publish:
-  provider: github
-  owner: alexandermats
-  repo: mai-reminder
-  # Options: "draft", "prerelease", "release"
-  releaseType: draft

@@ -7,7 +7,7 @@
     "start": "concurrently -k -n VITE,ELECTRON -c blue,yellow \"vite\" \"wait-on tcp:3000 && npm run rebuild && npm run build:electron && NODE_ENV=development electron dist-electron/electron/main.js\"",
     "dev": "vite",
     "build": "npm run typecheck && vite build && npm run build:electron",
-    "build:electron": "node -e \"require('fs').rmSync('dist-electron', {recursive:true, force:true})\" && tsc --project tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({type: 'commonjs'}))\"",
+    "build:electron": "node -e \"['dist-electron', 'release'].forEach(d => require('fs').rmSync(d, {recursive:true, force:true}))\" && tsc --project tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({type: 'commonjs'}))\"",
     "dist": "npm run build && electron-builder --config electron-builder.yml",
     "ensure-sqlite-proguard": "node scripts/ensure-sqlite-proguard.js",
     "rebuild": "node -e \"try { require('fs').rmSync('node_modules/better-sqlite3/build', {recursive:true, force:true}) } catch(e) {}\" && electron-builder install-app-deps",
