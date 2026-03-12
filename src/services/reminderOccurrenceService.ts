@@ -1,5 +1,5 @@
 import type { Reminder, ReminderInput } from '../types/reminder'
-import { ReminderStatus } from '../types/reminder'
+import { ReminderAction, ReminderStatus } from '../types/reminder'
 import type { IReminderRepository } from '../types/repository'
 import { getNextScheduledAt } from './schedulerService'
 import { getReminderSeriesBaseId } from '../utils/reminderSeries'
@@ -20,7 +20,11 @@ export async function applyTriggeredReminderTransition(
   sentScheduledAt?: Date,
   isSync: boolean = false
 ): Promise<TriggerTransitionResult> {
-  const updatePayload: Partial<ReminderInput> = { status: ReminderStatus.SENT }
+  const updatePayload: Partial<ReminderInput> = {
+    status: ReminderStatus.SENT,
+    lastAction: ReminderAction.TRIGGER,
+    lastActionAt: new Date(),
+  }
   if (sentScheduledAt && !Number.isNaN(sentScheduledAt.getTime())) {
     updatePayload.scheduledAt = sentScheduledAt
   }

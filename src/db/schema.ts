@@ -93,4 +93,12 @@ export const migrations: Migration[] = [
       ALTER TABLE reminders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 6,
+    name: 'Add last action columns to reminders table',
+    up: `
+      ALTER TABLE reminders ADD COLUMN last_action TEXT;
+      ALTER TABLE reminders ADD COLUMN last_action_at TEXT;
+    `,
+  },
 ]

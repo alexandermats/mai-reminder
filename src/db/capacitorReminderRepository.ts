@@ -8,6 +8,7 @@ import {
   ReminderLanguage,
   ReminderSource,
   ReminderParserMode,
+  ReminderAction,
   ReminderStatus,
 } from '../types/reminder'
 import type { IReminderRepository, ListOptions } from '../types/repository'
@@ -75,6 +76,8 @@ export class CapacitorReminderRepository implements IReminderRepository {
         parse_confidence REAL,
         recurrence_rule TEXT,
         status TEXT NOT NULL,
+        last_action TEXT,
+        last_action_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         priority INTEGER NOT NULL DEFAULT 0
@@ -87,6 +90,34 @@ export class CapacitorReminderRepository implements IReminderRepository {
     // so we attempt the operation and swallow the "duplicate column" error.
     try {
       await this.db.execute(`ALTER TABLE reminders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (
+        !msg.toLowerCase().includes('duplicate column') &&
+        !msg.toLowerCase().includes('already exists')
+      ) {
+        throw err
+      }
+      // Column already exists — safe to ignore
+    }
+
+    // Migration: add last_action column
+    try {
+      await this.db.execute(`ALTER TABLE reminders ADD COLUMN last_action TEXT;`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (
+        !msg.toLowerCase().includes('duplicate column') &&
+        !msg.toLowerCase().includes('already exists')
+      ) {
+        throw err
+      }
+      // Column already exists — safe to ignore
+    }
+
+    // Migration: add last_action_at column
+    try {
+      await this.db.execute(`ALTER TABLE reminders ADD COLUMN last_action_at TEXT;`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (
@@ -117,8 +148,9 @@ export class CapacitorReminderRepository implements IReminderRepository {
       const query = `
         INSERT INTO reminders (
           id, title, original_text, language, scheduled_at,
-          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at, priority
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source, parser_mode, parse_confidence, recurrence_rule, status, last_action, last_action_at,
+          created_at, updated_at, priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
 
       const params = [
@@ -132,6 +164,8 @@ export class CapacitorReminderRepository implements IReminderRepository {
         input.parseConfidence ?? null,
         input.recurrenceRule ?? null,
         input.status || 'pending',
+        input.lastAction ?? null,
+        input.lastActionAt ? toUTCString(this.ensureDate(input.lastActionAt)) : null,
         createdAtISO,
         updatedAtISO,
         input.priority ? 1 : 0,
@@ -266,6 +300,20 @@ export class CapacitorReminderRepository implements IReminderRepository {
         updates.push('status = ?')
         values.push(changes.status)
       }
+      if (changes.lastAction !== undefined) {
+        updates.push('last_action = ?')
+        values.push(changes.lastAction)
+      } else if ('lastAction' in changes) {
+        updates.push('last_action = ?')
+        values.push(null)
+      }
+      if (changes.lastActionAt !== undefined) {
+        updates.push('last_action_at = ?')
+        values.push(toUTCString(this.ensureDate(changes.lastActionAt)))
+      } else if ('lastActionAt' in changes) {
+        updates.push('last_action_at = ?')
+        values.push(null)
+      }
       if (changes.priority !== undefined) {
         updates.push('priority = ?')
         values.push(changes.priority ? 1 : 0)
@@ -356,6 +404,8 @@ function rowToReminder(row: any): Reminder {
     parseConfidence: row.parse_confidence ?? undefined,
     recurrenceRule: row.recurrence_rule ?? undefined,
     status: (row.status as ReminderStatus) || ReminderStatus.PENDING,
+    lastAction: (row.last_action as ReminderAction | null) ?? undefined,
+    lastActionAt: row.last_action_at ? fromUTCString(row.last_action_at) : undefined,
     createdAt: fromUTCString(row.created_at),
     updatedAt: fromUTCString(row.updated_at),
     priority: row.priority === 1,

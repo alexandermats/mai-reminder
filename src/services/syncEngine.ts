@@ -3,12 +3,16 @@ import { encryptionService } from './encryptionService'
 import { reminderAdapter } from './reminderAdapter'
 import { useSettingsStore } from '../stores/settings'
 import { isValidReminder } from '../types/reminder'
-import { ReminderStatus, type Reminder } from '../types/reminder'
+import { ReminderAction, ReminderStatus, type Reminder } from '../types/reminder'
 
-interface ReminderPayloadWire extends Omit<Reminder, 'scheduledAt' | 'createdAt' | 'updatedAt'> {
+interface ReminderPayloadWire extends Omit<
+  Reminder,
+  'scheduledAt' | 'createdAt' | 'updatedAt' | 'lastActionAt'
+> {
   scheduledAt: string
   createdAt: string
   updatedAt: string
+  lastActionAt?: string
 }
 
 export interface CloudBackfillResult {
@@ -88,6 +92,75 @@ export class SyncEngine {
     }
 
     throw lastError instanceof Error ? lastError : new Error(String(lastError))
+  }
+
+  private getActionPriority(action?: ReminderAction): number | null {
+    if (!action) return null
+    switch (action) {
+      case ReminderAction.SNOOZE:
+        return 3
+      case ReminderAction.DISMISS:
+        return 2
+      case ReminderAction.TRIGGER:
+        return 1
+      default:
+        return null
+    }
+  }
+
+  private getActionTimestamp(reminder: Reminder): number | null {
+    if (!(reminder.lastActionAt instanceof Date)) return null
+    const time = reminder.lastActionAt.getTime()
+    if (!Number.isFinite(time)) return null
+    return time
+  }
+
+  private resolveActionConflict(
+    localReminder: Reminder,
+    remoteReminder: Reminder
+  ): 'local' | 'remote' | null {
+    const statusConflict = localReminder.status !== remoteReminder.status
+    const scheduleConflict =
+      localReminder.scheduledAt.getTime() !== remoteReminder.scheduledAt.getTime()
+    if (!statusConflict && !scheduleConflict) {
+      return null
+    }
+
+    const localPriority = this.getActionPriority(localReminder.lastAction)
+    const remotePriority = this.getActionPriority(remoteReminder.lastAction)
+
+    if (localPriority === null && remotePriority === null) {
+      return null
+    }
+
+    if (localPriority !== null && remotePriority !== null && localPriority !== remotePriority) {
+      return localPriority > remotePriority ? 'local' : 'remote'
+    }
+
+    if (localPriority !== null && remotePriority === null) {
+      return 'local'
+    }
+
+    if (remotePriority !== null && localPriority === null) {
+      return 'remote'
+    }
+
+    const localActionAt = this.getActionTimestamp(localReminder)
+    const remoteActionAt = this.getActionTimestamp(remoteReminder)
+
+    if (localActionAt !== null && remoteActionAt !== null && localActionAt !== remoteActionAt) {
+      return localActionAt > remoteActionAt ? 'local' : 'remote'
+    }
+
+    if (localActionAt !== null && remoteActionAt === null) {
+      return 'local'
+    }
+
+    if (remoteActionAt !== null && localActionAt === null) {
+      return 'remote'
+    }
+
+    return null
   }
 
   // ---------------------------------------------------------------------------
@@ -274,10 +347,13 @@ export class SyncEngine {
 
           // Hydrate dates
           const remoteReminder: Reminder = {
-            ...parsedPayload,
+            ...(parsedPayload as Omit<ReminderPayloadWire, 'lastActionAt'>),
             scheduledAt: new Date(parsedPayload.scheduledAt),
             createdAt: new Date(parsedPayload.createdAt),
             updatedAt: new Date(parsedPayload.updatedAt),
+            ...(parsedPayload.lastActionAt
+              ? { lastActionAt: new Date(parsedPayload.lastActionAt) }
+              : {}),
           }
 
           if (!isValidReminder(remoteReminder)) {
@@ -298,7 +374,40 @@ export class SyncEngine {
             })
             changedLocally = true
           } else {
-            // Both sides exist: compare timestamps (last-write-wins)
+            // Both sides exist: compare action precedence (if applicable), else timestamps (LWW)
+            const actionDecision = this.resolveActionConflict(localReminder, remoteReminder)
+            if (actionDecision === 'remote') {
+              console.log(
+                `[SyncEngine] Applying action-precedence remote reminder ${remoteReminder.id}`
+              )
+              await reminderAdapter.update(remoteReminder.id, {
+                ...remoteReminder,
+                _isSync: true,
+              })
+              changedLocally = true
+              continue
+            }
+
+            if (actionDecision === 'local') {
+              console.log(
+                `[SyncEngine] Preserving action-precedence local reminder ${localReminder.id}`
+              )
+              try {
+                await this.pushReminderWithRetry(
+                  settings.cloudSyncUserId,
+                  localReminder,
+                  settings.cloudSyncEncryptionKeyBase64
+                )
+              } catch (pushErr) {
+                console.warn(
+                  `[SyncEngine] Failed to push local reminder ${localReminder.id}:`,
+                  pushErr
+                )
+              }
+              continue
+            }
+
+            // Fallback: compare timestamps (last-write-wins)
             const remoteTime = remoteReminder.updatedAt.getTime()
             const localTime = localReminder.updatedAt.getTime()
 

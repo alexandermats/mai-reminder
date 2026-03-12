@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Reminder } from '../types/reminder'
-import { ReminderStatus } from '../types/reminder'
+import { ReminderAction, ReminderStatus } from '../types/reminder'
 import { ref, computed, watch } from 'vue'
 import { isCapacitorNative } from '../utils/platform'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -28,10 +28,14 @@ import { getReminderSeriesBaseId } from '../utils/reminderSeries'
  * Interface for reminders coming over IPC, where Date objects
  * are serialized as ISO strings.
  */
-interface SerializedReminder extends Omit<Reminder, 'scheduledAt' | 'createdAt' | 'updatedAt'> {
+interface SerializedReminder extends Omit<
+  Reminder,
+  'scheduledAt' | 'createdAt' | 'updatedAt' | 'lastActionAt'
+> {
   scheduledAt: string | Date
   createdAt: string | Date
   updatedAt: string | Date
+  lastActionAt?: string | Date
 }
 
 export const useReminderStore = defineStore('reminder', () => {
@@ -257,6 +261,8 @@ export const useReminderStore = defineStore('reminder', () => {
             const sentOneTime = await reminderAdapter.update(current.id, {
               status: ReminderStatus.SENT,
               scheduledAt: current.scheduledAt,
+              lastAction: ReminderAction.TRIGGER,
+              lastActionAt: now,
               _isSync: true,
             })
             addReminder(sentOneTime)
@@ -292,6 +298,8 @@ export const useReminderStore = defineStore('reminder', () => {
               const sentCurrent = await reminderAdapter.update(current.id, {
                 scheduledAt: latestMissedAt,
                 status: ReminderStatus.SENT,
+                lastAction: ReminderAction.TRIGGER,
+                lastActionAt: now,
                 _isSync: true,
               })
               addReminder(sentCurrent)
@@ -316,6 +324,8 @@ export const useReminderStore = defineStore('reminder', () => {
             const completed = await reminderAdapter.update(current.id, {
               scheduledAt: latestMissedAt,
               status: ReminderStatus.SENT,
+              lastAction: ReminderAction.TRIGGER,
+              lastActionAt: now,
               _isSync: true,
             })
             addReminder(completed)
@@ -449,6 +459,7 @@ export const useReminderStore = defineStore('reminder', () => {
         scheduledAt: new Date(reminder.scheduledAt),
         createdAt: new Date(reminder.createdAt),
         updatedAt: new Date(reminder.updatedAt),
+        ...(reminder.lastActionAt ? { lastActionAt: new Date(reminder.lastActionAt) } : {}),
       } as Reminder
     }
 
@@ -502,6 +513,7 @@ export const useReminderStore = defineStore('reminder', () => {
       // If already dismissed, nothing to do
       if (reminder.status === ReminderStatus.DISMISSED) return
 
+      const actionAt = new Date()
       processingTriggeredReminders.add(reminderId)
       try {
         const { reminderAdapter } = await import('../services/reminderAdapter')
@@ -511,6 +523,8 @@ export const useReminderStore = defineStore('reminder', () => {
         if (reminder.status === ReminderStatus.SENT) {
           const updated = await reminderAdapter.update(reminderId, {
             status: ReminderStatus.DISMISSED,
+            lastAction: ReminderAction.DISMISS,
+            lastActionAt: actionAt,
           })
           addReminder(updated)
           return
@@ -522,7 +536,11 @@ export const useReminderStore = defineStore('reminder', () => {
           reminderAdapter
         )
         sentReminder.status = ReminderStatus.DISMISSED
-        await reminderAdapter.update(reminderId, { status: ReminderStatus.DISMISSED })
+        await reminderAdapter.update(reminderId, {
+          status: ReminderStatus.DISMISSED,
+          lastAction: ReminderAction.DISMISS,
+          lastActionAt: actionAt,
+        })
 
         addReminder(sentReminder)
         if (nextReminder) {
@@ -559,6 +577,7 @@ export const useReminderStore = defineStore('reminder', () => {
         return
       }
 
+      const actionAt = new Date()
       processingTriggeredReminders.add(reminderId)
       try {
         const { reminderAdapter } = await import('../services/reminderAdapter')
@@ -579,6 +598,8 @@ export const useReminderStore = defineStore('reminder', () => {
             scheduledAt: snoozedAt,
             status: ReminderStatus.PENDING,
             recurrenceRule: undefined,
+            lastAction: ReminderAction.SNOOZE,
+            lastActionAt: actionAt,
           })
           addReminder(updated)
         } else {
@@ -587,6 +608,8 @@ export const useReminderStore = defineStore('reminder', () => {
           const updated = await reminderAdapter.update(reminderId, {
             scheduledAt: snoozedAt,
             status: ReminderStatus.PENDING,
+            lastAction: ReminderAction.SNOOZE,
+            lastActionAt: actionAt,
             ...(reminder.recurrenceRule ? { recurrenceRule: undefined } : {}),
           })
           addReminder(updated)

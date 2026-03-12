@@ -34,7 +34,10 @@ describe('applyTriggeredReminderTransition', () => {
 
     const result = await applyTriggeredReminderTransition(reminder, { update, create })
 
-    expect(update).toHaveBeenCalledWith(reminder.id, { status: ReminderStatus.SENT })
+    expect(update).toHaveBeenCalledWith(
+      reminder.id,
+      expect.objectContaining({ status: ReminderStatus.SENT })
+    )
     expect(create).not.toHaveBeenCalled()
     expect(result.nextReminder).toBeUndefined()
     expect(result.sentReminder.status).toBe(ReminderStatus.SENT)

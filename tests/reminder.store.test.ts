@@ -438,7 +438,10 @@ describe('reminder store duplicate guard', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(adapterUpdateMock).toHaveBeenCalledWith(recurring.id, { status: ReminderStatus.SENT })
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      recurring.id,
+      expect.objectContaining({ status: ReminderStatus.SENT })
+    )
     expect(adapterCreateMock).toHaveBeenCalledTimes(1)
     expect(store.reminders.find((item) => item.id === recurring.id)?.status).toBe(
       ReminderStatus.SENT
@@ -1040,10 +1043,11 @@ describe('reminder store duplicate guard', () => {
     expect(store.sentMissedCount).toBe(1)
     expect(store.reminders).toHaveLength(2)
     expect(store.reminders.some((item) => item.id === state.overdue.id)).toBe(true)
-    expect(state.next).not.toBeNull()
-    if (state.next) {
-      expect(store.reminders.some((item) => item.id === state.next.id)).toBe(true)
+    const nextReminder = state.next
+    if (!nextReminder) {
+      throw new Error('Expected next reminder to be created')
     }
+    expect(store.reminders.some((item) => item.id === nextReminder.id)).toBe(true)
   })
 
   it('updates missed badge count when IPC badge:updated event arrives', () => {

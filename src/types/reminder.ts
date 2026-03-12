@@ -22,6 +22,15 @@ export enum ReminderStatus {
 }
 
 /**
+ * Last user/system action applied to a reminder.
+ */
+export enum ReminderAction {
+  TRIGGER = 'trigger',
+  SNOOZE = 'snooze',
+  DISMISS = 'dismiss',
+}
+
+/**
  * Parser mode used for natural language processing
  */
 export enum ReminderParserMode {
@@ -58,6 +67,10 @@ export interface Reminder {
   parserMode: ReminderParserMode
   /** Status of the reminder: 'pending' | 'sent' | 'cancelled' */
   status: ReminderStatus
+  /** Last action applied to this reminder */
+  lastAction?: ReminderAction
+  /** When the last action was applied */
+  lastActionAt?: Date
   /** Optional confidence score from parser (0.0 - 1.0) */
   parseConfidence?: number
   /** Optional iCalendar RRULE string for recurring reminders */
@@ -81,6 +94,8 @@ export interface ReminderInput {
   source: ReminderSource
   parserMode: ReminderParserMode
   status?: ReminderStatus
+  lastAction?: ReminderAction
+  lastActionAt?: Date
   parseConfidence?: number
   recurrenceRule?: string
   id?: string
@@ -154,6 +169,8 @@ export function createReminder(input: ReminderInput): Reminder {
     source: input.source,
     parserMode: input.parserMode,
     status: input.status || ReminderStatus.PENDING,
+    lastAction: input.lastAction,
+    lastActionAt: input.lastActionAt,
     parseConfidence: input.parseConfidence,
     recurrenceRule: input.recurrenceRule,
     createdAt: input.createdAt || nowDate,
@@ -168,6 +185,15 @@ export function createReminder(input: ReminderInput): Reminder {
 export function isReminderStatus(value: unknown): value is ReminderStatus {
   return (
     typeof value === 'string' && Object.values(ReminderStatus).includes(value as ReminderStatus)
+  )
+}
+
+/**
+ * Type guard to check if a value is a valid ReminderAction
+ */
+export function isReminderAction(value: unknown): value is ReminderAction {
+  return (
+    typeof value === 'string' && Object.values(ReminderAction).includes(value as ReminderAction)
   )
 }
 
@@ -241,6 +267,14 @@ export function isValidReminder(value: unknown): value is Reminder {
   if (!isReminderStatus(reminder.status)) return false
   if (!(reminder.createdAt instanceof Date)) return false
   if (!(reminder.updatedAt instanceof Date)) return false
+
+  if (reminder.lastAction !== undefined && !isReminderAction(reminder.lastAction)) {
+    return false
+  }
+
+  if (reminder.lastActionAt !== undefined && !(reminder.lastActionAt instanceof Date)) {
+    return false
+  }
 
   // Validate optional parseConfidence if present
   if (reminder.parseConfidence !== undefined) {

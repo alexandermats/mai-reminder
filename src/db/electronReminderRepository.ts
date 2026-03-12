@@ -9,6 +9,7 @@ import {
   ReminderLanguage,
   ReminderSource,
   ReminderParserMode,
+  ReminderAction,
   ReminderStatus,
 } from '../types/reminder'
 import { toUTCString, fromUTCString } from '../utils/datetime'
@@ -34,6 +35,8 @@ const REMINDER_COLUMNS = [
   'parse_confidence',
   'recurrence_rule',
   'status',
+  'last_action',
+  'last_action_at',
   'created_at',
   'updated_at',
   'priority',
@@ -87,8 +90,9 @@ export class ElectronReminderRepository implements IReminderRepository {
       const insert = this.db.prepare(`
         INSERT INTO reminders (
           id, title, original_text, language, scheduled_at,
-          source, parser_mode, parse_confidence, recurrence_rule, status, created_at, updated_at, priority
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source, parser_mode, parse_confidence, recurrence_rule, status, last_action, last_action_at,
+          created_at, updated_at, priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       insert.run(
@@ -102,6 +106,8 @@ export class ElectronReminderRepository implements IReminderRepository {
         input.parseConfidence ?? null,
         input.recurrenceRule ?? null,
         input.status || 'pending',
+        input.lastAction ?? null,
+        input.lastActionAt ? toUTCString(this.ensureDate(input.lastActionAt)) : null,
         createdAtISO,
         updatedAtISO,
         input.priority ? 1 : 0
@@ -296,6 +302,20 @@ export class ElectronReminderRepository implements IReminderRepository {
         updates.push('status = ?')
         values.push(changes.status)
       }
+      if (changes.lastAction !== undefined) {
+        updates.push('last_action = ?')
+        values.push(changes.lastAction)
+      } else if ('lastAction' in changes) {
+        updates.push('last_action = ?')
+        values.push(null)
+      }
+      if (changes.lastActionAt !== undefined) {
+        updates.push('last_action_at = ?')
+        values.push(toUTCString(this.ensureDate(changes.lastActionAt)))
+      } else if ('lastActionAt' in changes) {
+        updates.push('last_action_at = ?')
+        values.push(null)
+      }
 
       if (changes.priority !== undefined) {
         updates.push('priority = ?')
@@ -469,6 +489,8 @@ interface DatabaseReminderRow {
   parse_confidence: number | null
   recurrence_rule: string | null
   status: string
+  last_action: string | null
+  last_action_at: string | null
   created_at: string
   updated_at: string
   priority: number
@@ -491,6 +513,8 @@ function rowToReminder(row: DatabaseReminderRow): Reminder {
       parseConfidence: row.parse_confidence ?? undefined,
       recurrenceRule: row.recurrence_rule ?? undefined,
       status: (row.status as ReminderStatus) || ReminderStatus.PENDING,
+      lastAction: (row.last_action as ReminderAction | null) ?? undefined,
+      lastActionAt: row.last_action_at ? fromUTCString(row.last_action_at) : undefined,
       createdAt: fromUTCString(row.created_at),
       updatedAt: fromUTCString(row.updated_at),
       priority: row.priority === 1,

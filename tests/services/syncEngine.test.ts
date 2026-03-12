@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
+  ReminderAction,
   ReminderStatus,
   ReminderLanguage,
   ReminderSource,
@@ -78,6 +79,7 @@ function makeRemoteRow(reminder: Reminder, isDeleted = false) {
     scheduledAt: reminder.scheduledAt.toISOString(),
     createdAt: reminder.createdAt.toISOString(),
     updatedAt: reminder.updatedAt.toISOString(),
+    ...(reminder.lastActionAt ? { lastActionAt: reminder.lastActionAt.toISOString() } : {}),
   })
   return {
     reminder_id: reminder.id,
@@ -149,6 +151,38 @@ describe('SyncEngine', () => {
       expect(reminderAdapter.update).toHaveBeenCalledWith(
         'rem-1',
         expect.objectContaining({ title: 'Updated remotely', _isSync: true })
+      )
+    })
+
+    it('prefers local snooze over remote dismiss regardless of updatedAt', async () => {
+      const localReminder = makeReminder({
+        id: 'rem-conflict',
+        status: ReminderStatus.PENDING,
+        scheduledAt: new Date('2024-01-02T09:15:00Z'),
+        updatedAt: new Date('2024-01-01T10:00:00Z'),
+        lastAction: ReminderAction.SNOOZE,
+        lastActionAt: new Date('2024-01-01T10:00:00Z'),
+      })
+      const remoteReminder = makeReminder({
+        id: 'rem-conflict',
+        status: ReminderStatus.DISMISSED,
+        scheduledAt: new Date('2024-01-02T09:00:00Z'),
+        updatedAt: new Date('2024-01-01T11:00:00Z'),
+        lastAction: ReminderAction.DISMISS,
+        lastActionAt: new Date('2024-01-01T11:00:00Z'),
+      })
+
+      ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeRemoteRow(remoteReminder),
+      ])
+      ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+      await syncEngine.sync()
+
+      expect(reminderAdapter.update).not.toHaveBeenCalled()
+      expect(syncBackendClient.pushReminder).toHaveBeenCalledWith(
+        'user-123',
+        expect.objectContaining({ reminderId: 'rem-conflict', isDeleted: false })
       )
     })
 
