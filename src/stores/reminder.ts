@@ -791,7 +791,19 @@ export const useReminderStore = defineStore('reminder', () => {
               `[ReminderStore] Found ${activeMissedIds.size} active missed reminders from OS. Highlighting them.`
             )
             filterStatus.value = ReminderStatus.SENT
-            missedReminderIds.value = activeMissedIds
+
+            if (missedReminderIds.value.size > 0) {
+              const merged = new Set<string>()
+              missedReminderIds.value.forEach((id) => {
+                if (!dismissedMissedReminderIds.value.has(id)) {
+                  merged.add(id)
+                }
+              })
+              activeMissedIds.forEach((id) => merged.add(id))
+              missedReminderIds.value = merged
+            } else {
+              missedReminderIds.value = activeMissedIds
+            }
           }
         } catch (err) {
           console.warn('[ReminderStore] Failed to check delivered notifications:', err)
