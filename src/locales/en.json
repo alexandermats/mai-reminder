@@ -14,6 +14,7 @@
     "edit": "Edit",
     "yes": "Yes",
     "no": "No",
+    "ok": "OK",
     "noReminders": "No reminders yet",
     "hasReminders": "Has reminders",
     "createReminder": "Create Reminder",
@@ -186,7 +187,16 @@
     "resetToDefaults": "Reset to Defaults",
     "resetConfirmTitle": "Reset All Settings",
     "resetConfirmMessage": "Are you sure you want to reset all settings to their defaults? This will also unpair this device from Cloud Sync.",
-    "resetSuccessToast": "All settings have been reset."
+    "resetSuccessToast": "All settings have been reset.",
+    "cloudSyncBackfillSuccess": "Uploaded {count} existing reminder(s) to Cloud Sync.",
+    "cloudSyncBackfillPartial": "Cloud Sync enabled, but {count} reminder(s) failed to upload. They will retry on next changes.",
+    "cloudSyncBackfillError": "Cloud Sync enabled, but initial upload failed. Existing reminders will sync when updated.",
+    "cloudSyncBackfillRetryLater": "Cloud Sync enabled, but initial upload failed. Please try again in a moment.",
+    "cloudSyncBackfillFailedCount": "Cloud Sync enabled, but {count} reminder(s) failed to upload.",
+    "cloudSyncConfigError": "Failed to configure Cloud Sync. Check internet or Supabase configuration.",
+    "pinGenerationError": "Failed to generate PIN. Please try again.",
+    "pinLengthError": "PIN must be exactly 6 digits.",
+    "hotkeyUpdated": "Hotkey updated!"
   },
   "errors": {
     "offline": "You're offline. Using local parser.",

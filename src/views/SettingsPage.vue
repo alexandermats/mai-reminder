@@ -22,6 +22,8 @@
             :key="locale"
             :value="settingsStore.language"
             :placeholder="t('language.select')"
+            :ok-text="t('reminder.ok')"
+            :cancel-text="t('reminder.cancel')"
             @ion-change="onLanguageChange"
           >
             <ion-select-option value="en">{{ t('language.en') }}</ion-select-option>
@@ -34,6 +36,8 @@
           <ion-select
             :key="locale"
             :value="settingsStore.timeFormat"
+            :ok-text="t('reminder.ok')"
+            :cancel-text="t('reminder.cancel')"
             @ion-change="onTimeFormatChange"
           >
             <ion-select-option value="12h">{{ t('settings.format12h') }}</ion-select-option>
@@ -313,7 +317,7 @@ async function onHotkeyBlur(event: CustomEvent) {
   if (value && value !== settingsStore.quickAddHotkey) {
     await settingsStore.setQuickAddHotkey(value)
     const toast = await toastController.create({
-      message: 'Hotkey updated!',
+      message: t('settings.hotkeyUpdated'),
       duration: 2000,
       color: 'success',
       position: 'top',
@@ -403,7 +407,7 @@ async function setupNewAccount() {
   } catch (err) {
     console.error('Failed to setup cloud sync:', err)
     const toast = await toastController.create({
-      message: 'Failed to configure Cloud Sync. Check internet or Supabase configuration.',
+      message: t('settings.cloudSyncConfigError'),
       duration: 3000,
       color: 'danger',
       position: 'top',
@@ -443,7 +447,7 @@ async function promptEnterPairingPin() {
             await finalizePairingFromPin(data.pin)
           } else {
             const toast = await toastController.create({
-              message: 'PIN must be exactly 6 digits.',
+              message: t('settings.pinLengthError'),
               duration: 2000,
               color: 'danger',
               position: 'top',
@@ -515,7 +519,7 @@ async function completePairing(options: { backfillLocalReminders: boolean }) {
       const result = await reminderStore.backfillCloudFromLocal()
       if (result.failed > 0) {
         const warningToast = await toastController.create({
-          message: `Cloud Sync enabled, but ${result.failed} reminder(s) failed to upload. They will retry on next changes.`,
+          message: t('settings.cloudSyncBackfillPartial', { count: result.failed }, result.failed),
           duration: 3500,
           color: 'warning',
           position: 'top',
@@ -523,7 +527,7 @@ async function completePairing(options: { backfillLocalReminders: boolean }) {
         await warningToast.present()
       } else if (result.pushed > 0) {
         const successToast = await toastController.create({
-          message: `Uploaded ${result.pushed} existing reminder(s) to Cloud Sync.`,
+          message: t('settings.cloudSyncBackfillSuccess', { count: result.pushed }, result.pushed),
           duration: 2200,
           color: 'success',
           position: 'top',
@@ -533,8 +537,7 @@ async function completePairing(options: { backfillLocalReminders: boolean }) {
     } catch (error) {
       console.error('Initial cloud backfill failed:', error)
       const errorToast = await toastController.create({
-        message:
-          'Cloud Sync enabled, but initial upload failed. Existing reminders will sync when updated.',
+        message: t('settings.cloudSyncBackfillError'),
         duration: 3500,
         color: 'warning',
         position: 'top',
@@ -546,7 +549,7 @@ async function completePairing(options: { backfillLocalReminders: boolean }) {
   const alert = await alertController.create({
     header: t('settings.pairingSuccessTitle'),
     message: t('settings.pairingSuccessMessage'),
-    buttons: ['OK'],
+    buttons: [t('reminder.ok')],
   })
   await alert.present()
 }
@@ -580,13 +583,13 @@ async function generatePairingPin() {
           },
         },
       ],
-      buttons: ['OK'],
+      buttons: [t('reminder.ok')],
     })
     await alert.present()
   } catch (err) {
     console.error('Failed to generate PIN:', err)
     const toast = await toastController.create({
-      message: 'Failed to generate PIN. Please try again.',
+      message: t('settings.pinGenerationError'),
       duration: 3000,
       color: 'danger',
       position: 'top',
@@ -610,7 +613,13 @@ async function onCloudSyncChange(event: CustomEvent) {
       const result = await reminderStore.backfillCloudFromLocal()
       if (result.failed > 0) {
         const toast = await toastController.create({
-          message: `Cloud Sync enabled, but ${result.failed} reminder(s) failed to upload.`,
+          message: t(
+            'settings.cloudSyncBackfillFailedCount',
+            {
+              count: result.failed,
+            },
+            result.failed
+          ),
           duration: 3000,
           color: 'warning',
           position: 'top',
@@ -620,7 +629,7 @@ async function onCloudSyncChange(event: CustomEvent) {
     } catch (error) {
       console.error('Cloud backfill failed after enabling sync:', error)
       const toast = await toastController.create({
-        message: 'Cloud Sync enabled, but initial upload failed. Please try again in a moment.',
+        message: t('settings.cloudSyncBackfillRetryLater'),
         duration: 3000,
         color: 'warning',
         position: 'top',
