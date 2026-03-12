@@ -79,6 +79,7 @@ const RU_COMPOUND_RE = new RegExp(
 )
 const RU_SINGLE_RE = new RegExp(`(?<![\\p{L}\\p{N}_])(${SINGLE_PATTERN})(?![\\p{L}\\p{N}_])`, 'giu')
 const RU_DIGIT_SPACE_TIME_RE = /(?:^|(?<=\s))в\s+(\d{1,2})\s+(\d{2})(?!\d)/giu
+const RU_DIGIT_HOURS_RE = /(?:^|(?<=\s))в\s+(\d{1,2})\s+(?:час(?:а|ов)?|ч)(?=$|[\s.,!?])/giu
 
 export function normalizeRussianText(text: string): string {
   let result = text.replace(
@@ -101,6 +102,9 @@ export function normalizeRussianText(text: string): string {
     RU_DIGIT_SPACE_TIME_RE,
     (_match: string, hour: string, minute: string) => `в ${hour}:${minute}`
   )
+
+  // Normalize "в 18 часов" / "в 18 час" / "в 18 ч" into explicit clock time.
+  result = result.replace(RU_DIGIT_HOURS_RE, (_match: string, hour: string) => `в ${hour}:00`)
 
   return result
 }

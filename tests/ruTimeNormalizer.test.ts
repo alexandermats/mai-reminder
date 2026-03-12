@@ -22,6 +22,11 @@ describe('normalizeRussianText', () => {
     expect(result).toBe('прогулка в 6:30 вечера')
   })
 
+  it('normalizes "в 18 часов" to explicit time', () => {
+    const result = normalizeRussianText('пойти гулять в 18 часов')
+    expect(result).toBe('пойти гулять в 18:00')
+  })
+
   it('does not change EN text', () => {
     const text = 'call me in 15 minutes'
     expect(normalizeRussianText(text)).toBe(text)
