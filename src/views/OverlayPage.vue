@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import { IonPage, toastController } from '@ionic/vue'
+import { checkmarkCircle, alertCircle, warning } from 'ionicons/icons'
 import QuickAddInput from '../components/QuickAddInput.vue'
 import ErrorNotification from '../components/ErrorNotification.vue'
 import { useI18n } from 'vue-i18n'
@@ -86,7 +87,8 @@ async function showToast(message: string, color: 'success' | 'danger' | 'warning
     message,
     duration: 3000,
     position: 'top',
-    color,
+    cssClass: `apple-toast toast-${color}`,
+    icon: color === 'success' ? checkmarkCircle : color === 'danger' ? alertCircle : warning,
   })
   await toast.present()
 }

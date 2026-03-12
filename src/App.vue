@@ -114,7 +114,7 @@ ion-app {
 
 /* iOS-style segment controls */
 ion-segment {
-  --background: rgba(118, 118, 128, 0.12);
+  --background: #e3e3e8;
   border-radius: 10px;
   padding: 2px;
 }
@@ -156,5 +156,51 @@ ion-title {
   font-weight: 600;
   letter-spacing: -0.3px;
   font-size: 17px;
+}
+/* iOS-style Toast Styling (Dynamic Island inspired) */
+ion-toast.apple-toast {
+  --background: rgba(255, 255, 255, 0.88);
+  --border-radius: 28px;
+  --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --color: #1c1c1e;
+  font-weight: 500;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  margin-top: 12px;
+}
+
+ion-toast.apple-toast::part(container) {
+  border: 0.5px solid rgba(0, 0, 0, 0.05);
+  padding: 6px 12px;
+}
+
+ion-toast.apple-toast::part(message) {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+/* Variant-specific icon colors */
+ion-toast.apple-toast.toast-success {
+  --button-color: #34c759;
+}
+
+ion-toast.apple-toast.toast-danger {
+  --button-color: #ff3b30;
+}
+
+ion-toast.apple-toast.toast-warning {
+  --button-color: #ff9f0a;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  ion-toast.apple-toast {
+    --background: rgba(44, 44, 46, 0.85);
+    --color: #ffffff;
+  }
+  ion-toast.apple-toast::part(container) {
+    border: 0.5px solid rgba(255, 255, 255, 0.1);
+  }
 }
 </style>

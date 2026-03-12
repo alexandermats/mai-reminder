@@ -252,6 +252,7 @@ import {
   alertController,
   toastController,
 } from '@ionic/vue'
+import { checkmarkCircle, alertCircle, warning, informationCircle } from 'ionicons/icons'
 import { useSettingsStore } from '../stores/settings'
 import { useReminderStore } from '../stores/reminder'
 import { isElectron } from '../utils/platform'
@@ -266,6 +267,27 @@ const includeSent = ref(true)
 
 // Announcement text for screen reader notifications
 const announcement = ref('')
+
+async function showToast(
+  message: string,
+  color: 'success' | 'danger' | 'warning' | 'medium' = 'success'
+) {
+  const toast = await toastController.create({
+    message,
+    duration: color === 'danger' ? 4000 : 3000,
+    position: 'top',
+    cssClass: `apple-toast toast-${color}`,
+    icon:
+      color === 'success'
+        ? checkmarkCircle
+        : color === 'danger'
+          ? alertCircle
+          : color === 'warning'
+            ? warning
+            : informationCircle,
+  })
+  await toast.present()
+}
 
 onMounted(async () => {
   await settingsStore.initialize()
@@ -316,13 +338,7 @@ async function onHotkeyBlur(event: CustomEvent) {
   const value = event.detail.value as string
   if (value && value !== settingsStore.quickAddHotkey) {
     await settingsStore.setQuickAddHotkey(value)
-    const toast = await toastController.create({
-      message: t('settings.hotkeyUpdated'),
-      duration: 2000,
-      color: 'success',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('settings.hotkeyUpdated'))
   }
 }
 
@@ -406,13 +422,7 @@ async function setupNewAccount() {
     await completePairing({ backfillLocalReminders: true })
   } catch (err) {
     console.error('Failed to setup cloud sync:', err)
-    const toast = await toastController.create({
-      message: t('settings.cloudSyncConfigError'),
-      duration: 3000,
-      color: 'danger',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('settings.cloudSyncConfigError'), 'danger')
   }
 }
 
@@ -446,13 +456,7 @@ async function promptEnterPairingPin() {
           if (data.pin && data.pin.length === 6) {
             await finalizePairingFromPin(data.pin)
           } else {
-            const toast = await toastController.create({
-              message: t('settings.pinLengthError'),
-              duration: 2000,
-              color: 'danger',
-              position: 'top',
-            })
-            await toast.present()
+            await showToast(t('settings.pinLengthError'), 'danger')
           }
         },
       },
@@ -518,31 +522,19 @@ async function completePairing(options: { backfillLocalReminders: boolean }) {
     try {
       const result = await reminderStore.backfillCloudFromLocal()
       if (result.failed > 0) {
-        const warningToast = await toastController.create({
-          message: t('settings.cloudSyncBackfillPartial', { count: result.failed }, result.failed),
-          duration: 3500,
-          color: 'warning',
-          position: 'top',
-        })
-        await warningToast.present()
+        await showToast(
+          t('settings.cloudSyncBackfillPartial', { count: result.failed }, result.failed),
+          'warning'
+        )
       } else if (result.pushed > 0) {
-        const successToast = await toastController.create({
-          message: t('settings.cloudSyncBackfillSuccess', { count: result.pushed }, result.pushed),
-          duration: 2200,
-          color: 'success',
-          position: 'top',
-        })
-        await successToast.present()
+        await showToast(
+          t('settings.cloudSyncBackfillSuccess', { count: result.pushed }, result.pushed),
+          'success'
+        )
       }
     } catch (error) {
       console.error('Initial cloud backfill failed:', error)
-      const errorToast = await toastController.create({
-        message: t('settings.cloudSyncBackfillError'),
-        duration: 3500,
-        color: 'warning',
-        position: 'top',
-      })
-      await errorToast.present()
+      await showToast(t('settings.cloudSyncBackfillError'), 'warning')
     }
   }
 
@@ -588,13 +580,7 @@ async function generatePairingPin() {
     await alert.present()
   } catch (err) {
     console.error('Failed to generate PIN:', err)
-    const toast = await toastController.create({
-      message: t('settings.pinGenerationError'),
-      duration: 3000,
-      color: 'danger',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('settings.pinGenerationError'), 'danger')
   }
 }
 
@@ -612,29 +598,14 @@ async function onCloudSyncChange(event: CustomEvent) {
     try {
       const result = await reminderStore.backfillCloudFromLocal()
       if (result.failed > 0) {
-        const toast = await toastController.create({
-          message: t(
-            'settings.cloudSyncBackfillFailedCount',
-            {
-              count: result.failed,
-            },
-            result.failed
-          ),
-          duration: 3000,
-          color: 'warning',
-          position: 'top',
-        })
-        await toast.present()
+        await showToast(
+          t('settings.cloudSyncBackfillFailedCount', { count: result.failed }, result.failed),
+          'warning'
+        )
       }
     } catch (error) {
       console.error('Cloud backfill failed after enabling sync:', error)
-      const toast = await toastController.create({
-        message: t('settings.cloudSyncBackfillRetryLater'),
-        duration: 3000,
-        color: 'warning',
-        position: 'top',
-      })
-      await toast.present()
+      await showToast(t('settings.cloudSyncBackfillRetryLater'), 'warning')
     }
 
     await reminderStore.syncCloud()
@@ -672,30 +643,13 @@ async function handleClearOld() {
     const count = await reminderStore.clearOldReminders(includeSent.value)
 
     if (count > 0) {
-      const toast = await toastController.create({
-        message: t('settings.clearedToast', { count }),
-        duration: 2000,
-        color: 'success',
-        position: 'top',
-      })
-      await toast.present()
+      await showToast(t('settings.clearedToast', { count }))
     } else {
-      const toast = await toastController.create({
-        message: t('settings.noRemindersToClear'),
-        duration: 2000,
-        position: 'top',
-      })
-      await toast.present()
+      await showToast(t('settings.noRemindersToClear'), 'medium')
     }
   } catch (err) {
     console.error('Failed to clear old reminders:', err)
-    const toast = await toastController.create({
-      message: t('errors.general'),
-      duration: 3000,
-      color: 'danger',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('errors.general'), 'danger')
   }
 }
 
@@ -728,22 +682,10 @@ async function handleResetToDefaults() {
     // Sync vue-i18n locale with the suddenly cleared language
     locale.value = settingsStore.language
 
-    const toast = await toastController.create({
-      message: t('settings.resetSuccessToast'),
-      duration: 3000,
-      color: 'success',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('settings.resetSuccessToast'))
   } catch (err) {
     console.error('Failed to reset settings:', err)
-    const toast = await toastController.create({
-      message: t('errors.general'),
-      duration: 3000,
-      color: 'danger',
-      position: 'top',
-    })
-    await toast.present()
+    await showToast(t('errors.general'), 'danger')
   }
 }
 </script>

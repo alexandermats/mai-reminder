@@ -87,7 +87,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { IonItem, IonInput, IonButton, IonIcon, IonSpinner, toastController } from '@ionic/vue'
-import { sendOutline, micOutline, closeOutline, checkmarkOutline } from 'ionicons/icons'
+import {
+  sendOutline,
+  micOutline,
+  closeOutline,
+  checkmarkOutline,
+  alertCircle,
+  warning,
+} from 'ionicons/icons'
 import { useI18n } from 'vue-i18n'
 import { orchestrator } from '../parser/orchestrator'
 import { useSettingsStore } from '../stores/settings'
@@ -181,7 +188,8 @@ async function showVoiceErrorToast(error: unknown): Promise<void> {
   const toast = await toastController.create({
     message: details.message,
     duration: 3000,
-    color: 'danger',
+    cssClass: 'apple-toast toast-danger',
+    icon: alertCircle,
     position: 'bottom',
   })
   await toast.present()
@@ -228,7 +236,8 @@ async function startRecording() {
       message: t('reminder.voiceUnsupported', 'Voice input is not supported in this browser.'),
       duration: 3000,
       position: 'bottom',
-      color: 'warning',
+      cssClass: 'apple-toast toast-warning',
+      icon: warning,
     })
     await toast.present()
     return

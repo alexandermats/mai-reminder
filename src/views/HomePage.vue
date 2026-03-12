@@ -95,7 +95,7 @@ import {
   toastController,
 } from '@ionic/vue'
 
-import { settingsOutline } from 'ionicons/icons'
+import { settingsOutline, checkmarkCircle } from 'ionicons/icons'
 import { useI18n } from 'vue-i18n'
 import ReminderList from '../components/ReminderList.vue'
 import QuickAddInput from '../components/QuickAddInput.vue'
@@ -213,7 +213,8 @@ async function showSavedToast() {
     message: t('reminder.savedToast') || 'Reminder saved!',
     duration: 2000,
     position: 'top',
-    color: 'success',
+    cssClass: 'apple-toast toast-success',
+    icon: checkmarkCircle,
   })
   await toast.present()
 }
@@ -491,7 +492,7 @@ ion-footer {
 
 .header-controls {
   padding: 6px 12px 4px;
-  background: transparent;
+  background: var(--ion-background-color);
   z-index: 10;
   display: flex;
   flex-direction: column;
