@@ -225,7 +225,7 @@
 
         <ion-item lines="none">
           <ion-label>{{ t('settings.version') }}</ion-label>
-          <ion-note slot="end">0.4.0</ion-note>
+          <ion-note slot="end">0.4.1</ion-note>
         </ion-item>
         <ion-item lines="none">
           <ion-note class="ion-text-center">
