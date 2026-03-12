@@ -100,15 +100,23 @@
           />
         </ion-item>
 
-        <ion-item v-if="isElectron()" class="hotkey-item">
-          <ion-label position="stacked">{{ t('settings.hotkey') }}</ion-label>
-          <ion-input
-            class="hotkey-input"
+        <ion-item v-if="isElectron()">
+          <ion-label>{{ t('settings.hotkey') }}</ion-label>
+          <ion-select
+            slot="end"
+            :key="locale"
             :value="settingsStore.quickAddHotkey"
-            :placeholder="t('settings.hotkeyPlaceholder')"
-            data-test="hotkey-input"
-            @ion-blur="onHotkeyBlur"
-          />
+            :ok-text="t('reminder.ok')"
+            :cancel-text="t('reminder.cancel')"
+            @ion-change="onHotkeyChange"
+          >
+            <ion-select-option value="CommandOrControl+Shift+Space">
+              {{ isMac ? t('settings.shortcutOption1Mac') : t('settings.shortcutOption1Win') }}
+            </ion-select-option>
+            <ion-select-option value="Alt+Space">
+              {{ isMac ? t('settings.shortcutOption2Mac') : t('settings.shortcutOption2Win') }}
+            </ion-select-option>
+          </ion-select>
         </ion-item>
 
         <ion-item lines="none">
@@ -264,6 +272,7 @@ const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
 const reminderStore = useReminderStore()
 const includeSent = ref(true)
+const isMac = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('mac')
 
 // Announcement text for screen reader notifications
 const announcement = ref('')
@@ -334,7 +343,7 @@ function onOpenAtLoginChange(event: CustomEvent) {
     : t('settings.openAtLoginDisabled')
 }
 
-async function onHotkeyBlur(event: CustomEvent) {
+async function onHotkeyChange(event: CustomEvent) {
   const value = event.detail.value as string
   if (value && value !== settingsStore.quickAddHotkey) {
     await settingsStore.setQuickAddHotkey(value)
@@ -736,20 +745,6 @@ ion-note {
 ion-item ion-label[position='stacked'] {
   font-size: 0.82rem !important;
   margin-bottom: 4px;
-}
-
-.hotkey-item {
-  --padding-bottom: 12px;
-}
-
-.hotkey-input {
-  --background: #f4f4f5 !important;
-  border: 1px solid #e4e4e7;
-  border-radius: 8px;
-  margin-top: 8px !important;
-  margin-bottom: 8px !important;
-  padding: 0 12px !important;
-  margin-left: 0 !important;
 }
 
 .sub-setting {
