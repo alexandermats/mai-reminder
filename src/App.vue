@@ -159,19 +159,29 @@ ion-title {
 }
 /* iOS-style Toast Styling (Dynamic Island inspired) */
 ion-toast.apple-toast {
-  --background: rgba(255, 255, 255, 0.88);
+  --background: transparent; /* Move background to container part */
   --border-radius: 28px;
-  --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --box-shadow: none; /* Move shadow to container part */
   --color: #1c1c1e;
+  --width: fit-content;
+  --max-width: 90%;
   font-weight: 500;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  margin-top: 12px;
+  margin-top: calc(16px + env(safe-area-inset-top));
+  /* Centering logic for fit-content width */
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 ion-toast.apple-toast::part(container) {
+  background: rgba(255, 255, 255, 0.88);
   border: 0.5px solid rgba(0, 0, 0, 0.05);
   padding: 6px 12px;
+  border-radius: 28px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 ion-toast.apple-toast::part(message) {
@@ -196,10 +206,10 @@ ion-toast.apple-toast.toast-warning {
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   ion-toast.apple-toast {
-    --background: rgba(44, 44, 46, 0.85);
     --color: #ffffff;
   }
   ion-toast.apple-toast::part(container) {
+    background: rgba(44, 44, 46, 0.85);
     border: 0.5px solid rgba(255, 255, 255, 0.1);
   }
 }
